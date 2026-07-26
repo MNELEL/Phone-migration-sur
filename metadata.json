@@ -1,0 +1,6 @@
+{
+  "name": "Phone Migration Helper",
+  "description": "Smart scanning before moving to a new phone. Automatically detects installed apps, media, and contacts to generate a migration checklist.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
