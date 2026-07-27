@@ -12,7 +12,7 @@ fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "welcome") {
         composable("welcome") {
-            WelcomeScreen(onContinue = { navController.navigate("permissions") })
+            WelcomeScreen(onContinue = { navController.navigate("scan") })
         }
         composable("permissions") {
             PermissionScreen(onContinue = { navController.navigate("scan") })

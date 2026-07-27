@@ -6,13 +6,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.domain.ChecklistItem
 import com.example.domain.CoverageSource
 import com.example.ui.ScanViewModel
@@ -21,6 +27,13 @@ import com.example.ui.ScanViewModel
 @Composable
 fun ChecklistScreen(onBack: () -> Unit, viewModel: ScanViewModel) {
     val state by viewModel.state.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredList = state.checklist.filter { item ->
+        item.title.contains(searchQuery, ignoreCase = true) ||
+        item.instruction.contains(searchQuery, ignoreCase = true) ||
+        (item.action?.contains(searchQuery, ignoreCase = true) == true)
+    }
 
     Scaffold(
         topBar = {
@@ -102,6 +115,36 @@ fun ChecklistScreen(onBack: () -> Unit, viewModel: ScanViewModel) {
             
             item {
                 Spacer(Modifier.height(24.dp))
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search apps and contacts...", style = MaterialTheme.typography.bodyMedium) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = "Search icon")
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    )
+                )
+            }
+            
+            item {
+                Spacer(Modifier.height(24.dp))
                 Text(
                     text = "MIGRATION TASKS",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
@@ -110,7 +153,7 @@ fun ChecklistScreen(onBack: () -> Unit, viewModel: ScanViewModel) {
                 )
             }
             
-            val sortedList = state.checklist.sortedBy { it.source != CoverageSource.GOOGLE_BUILTIN }
+            val sortedList = filteredList.sortedBy { it.source != CoverageSource.GOOGLE_BUILTIN }
             
             items(sortedList) { item ->
                 ChecklistRow(item = item) {

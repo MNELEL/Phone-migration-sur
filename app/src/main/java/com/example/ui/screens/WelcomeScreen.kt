@@ -4,7 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -13,9 +13,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.ui.components.OnboardingDialog
 
 @Composable
 fun WelcomeScreen(onContinue: () -> Unit) {
+    var showOnboarding by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -28,7 +31,7 @@ fun WelcomeScreen(onContinue: () -> Unit) {
             contentDescription = "Migration Hero Image",
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
+                .aspectRatio(1.5f)
                 .clip(RoundedCornerShape(24.dp)),
             contentScale = ContentScale.Crop
         )
@@ -47,11 +50,21 @@ fun WelcomeScreen(onContinue: () -> Unit) {
         )
         Spacer(Modifier.height(32.dp))
         Button(
-            onClick = onContinue,
+            onClick = { showOnboarding = true },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
             Text("Start Scan", style = MaterialTheme.typography.titleMedium)
         }
     }
+
+    OnboardingDialog(
+        showDialog = showOnboarding,
+        onDismiss = { showOnboarding = false },
+        onPermissionsGranted = {
+            showOnboarding = false
+            onContinue()
+        }
+    )
 }
+
