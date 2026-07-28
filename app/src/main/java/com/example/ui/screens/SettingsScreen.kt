@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,7 +29,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onNavigateToDeviceAdmin: () -> Unit = {}
+    onNavigateToDeviceAdmin: () -> Unit = {},
+    onNavigateToLivePreview: () -> Unit = {}
 ) {
     var backupMode by remember { mutableStateOf("Google Drive") } // "Google Drive", "Dropbox", "Manual Encrypted"
     var isEncryptionEnabled by remember { mutableStateOf(true) }
@@ -321,6 +323,17 @@ fun SettingsScreen(
                             Icon(Icons.Default.AdminPanelSettings, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("פתח מנהל מכשיר ומשכפל אפליקציות", fontWeight = FontWeight.Bold)
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        OutlinedButton(
+                            onClick = onNavigateToLivePreview,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Smartphone, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("פתח תצוגה מקדימה בזמן אמת (Live UI Preview)")
                         }
                     }
                 }

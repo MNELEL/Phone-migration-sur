@@ -34,7 +34,8 @@ fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
                 onNavigateToQrWizard = { navController.navigate("qr_wizard") },
                 onNavigateToReport = { navController.navigate("report") },
                 onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToDeviceAdmin = { navController.navigate("device_admin_cloning") }
+                onNavigateToDeviceAdmin = { navController.navigate("device_admin_cloning") },
+                onNavigateToLivePreview = { navController.navigate("live_preview") }
             )
         }
         composable("dashboard") {
@@ -73,13 +74,19 @@ fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
         composable("settings") {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToDeviceAdmin = { navController.navigate("device_admin_cloning") }
+                onNavigateToDeviceAdmin = { navController.navigate("device_admin_cloning") },
+                onNavigateToLivePreview = { navController.navigate("live_preview") }
             )
         }
         composable("device_admin_cloning") {
             DeviceAdminCloningScreen(
                 onBack = { navController.popBackStack() },
                 onNavigateToReport = { navController.navigate("report") }
+            )
+        }
+        composable("live_preview") {
+            LivePreviewScreen(
+                onBack = { navController.popBackStack() }
             )
         }
     }

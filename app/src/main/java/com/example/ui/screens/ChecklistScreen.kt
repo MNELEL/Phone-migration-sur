@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.ui.text.style.TextAlign
 import com.example.domain.ChecklistItem
 import com.example.domain.CoverageSource
@@ -52,7 +53,8 @@ fun ChecklistScreen(
     onNavigateToQrWizard: () -> Unit = {},
     onNavigateToReport: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToDeviceAdmin: () -> Unit = {}
+    onNavigateToDeviceAdmin: () -> Unit = {},
+    onNavigateToLivePreview: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
@@ -157,6 +159,13 @@ fun ChecklistScreen(
                             title = "מנהל מכשיר",
                             icon = androidx.compose.material.icons.Icons.Default.AdminPanelSettings,
                             onClick = onNavigateToDeviceAdmin
+                        )
+                    }
+                    item {
+                        QuickToolChip(
+                            title = "תצוגה מקדימה",
+                            icon = androidx.compose.material.icons.Icons.Default.Smartphone,
+                            onClick = onNavigateToLivePreview
                         )
                     }
                     item {
