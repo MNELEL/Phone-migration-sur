@@ -36,7 +36,7 @@ fun ScanScreen(onComplete: () -> Unit, viewModel: ScanViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Analyzing Device",
+            text = "מנתח את המכשיר...",
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.5).sp
@@ -66,7 +66,7 @@ fun ScanScreen(onComplete: () -> Unit, viewModel: ScanViewModel) {
         if (state.error != null) {
             Spacer(Modifier.height(24.dp))
             Text(
-                text = "Error: ${state.error}",
+                text = "שגיאה: ${state.error}",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
@@ -76,7 +76,7 @@ fun ScanScreen(onComplete: () -> Unit, viewModel: ScanViewModel) {
                 onClick = { viewModel.startScan() },
                 shape = MaterialTheme.shapes.medium
             ) {
-                Text("Retry Scan")
+                Text("נסה שוב")
             }
         }
     }

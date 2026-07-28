@@ -14,7 +14,8 @@ class ChecklistBuilder(private val coverageEngine: CoverageEngine) {
                 instruction = decision.instruction,
                 action = decision.method,
                 verified = decision.verified,
-                completed = false
+                completed = false,
+                category = item.category
             )
         }
     }

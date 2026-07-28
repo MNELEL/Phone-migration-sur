@@ -86,7 +86,7 @@ fun OnboardingDialog(
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        text = "How Scanning Works",
+                        text = "כיצד הסריקה עובדת",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
@@ -105,7 +105,7 @@ fun OnboardingDialog(
                         .padding(vertical = 16.dp)
                 ) {
                     Text(
-                        text = "To make transferring to your new device completely effortless, we conduct a quick, secure analysis of your phone. Here is what you need to know:",
+                        text = "כדי להפוך את המעבר למכשיר החדש שלך לקל וללא מאמץ, אנו מבצעים ניתוח מהיר ומאובטח של הטלפון. הנה מה שחשוב לדעת:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 20.dp)
@@ -114,8 +114,8 @@ fun OnboardingDialog(
                     // Card 1: Local & Private
                     OnboardingInfoCard(
                         icon = Icons.Default.Lock,
-                        title = "100% Private & Local",
-                        description = "Your files, media content, and contacts never leave this device. The analysis runs completely offline and local.",
+                        title = "100% פרטי ומקומי",
+                        description = "הקבצים, המדיה ואנשי הקשר שלך לעולם אינם עוזבים את המכשיר. הניתוח מתבצע באופן מקומי ולא מקוון לחלוטין.",
                         backgroundColor = MaterialTheme.colorScheme.surfaceVariant
                     )
 
@@ -124,8 +124,8 @@ fun OnboardingDialog(
                     // Card 2: Intended Smart Flow
                     OnboardingInfoCard(
                         icon = Icons.Default.Info,
-                        title = "Google Integration Check",
-                        description = "We map your apps against Google Backup and automatic sync limits, showing you exactly what is safe to format.",
+                        title = "בדיקת סנכרון עם גוגל",
+                        description = "אנו מנתחים את האפליקציות שלך אל מול הגיבוי של גוגל ומגבלות הסנכרון האוטומטי, ומראים לך בדיוק מה בטוח לפרמוט.",
                         backgroundColor = MaterialTheme.colorScheme.surfaceVariant
                     )
 
@@ -134,8 +134,8 @@ fun OnboardingDialog(
                     // Card 3: Permissions needed
                     OnboardingInfoCard(
                         icon = Icons.Default.CheckCircle,
-                        title = "Permissions Needed",
-                        description = "• Contacts: To verify sync counts.\n• Media: To catalog photos & videos.\n• Accounts: To check backup profile.",
+                        title = "הרשאות נדרשות",
+                        description = "• אנשי קשר: לאימות סנכרון אנשי קשר.\n• מדיה: לקטלוג תמונות וסרטונים.\n• חשבונות: לבדיקת פרופיל הגיבוי.",
                         backgroundColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -151,7 +151,7 @@ fun OnboardingDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", fontWeight = FontWeight.Medium)
+                        Text("ביטול", fontWeight = FontWeight.Medium)
                     }
                     Spacer(Modifier.width(12.dp))
                     Button(
@@ -160,7 +160,7 @@ fun OnboardingDialog(
                         },
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Accept & Grant", fontWeight = FontWeight.Bold)
+                        Text("אישור והמשך", fontWeight = FontWeight.Bold)
                     }
                 }
             }

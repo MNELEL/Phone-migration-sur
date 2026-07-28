@@ -37,13 +37,13 @@ fun WelcomeScreen(onContinue: () -> Unit) {
         )
         Spacer(Modifier.height(32.dp))
         Text(
-            text = "Phone Migration Helper",
+            text = "עוזר מעבר טלפון",
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "Smart scanning before moving to a new device. We automatically detect installed apps, media, and contacts to generate a seamless migration checklist.",
+            text = "סריקה חכמה לפני מעבר למכשיר חדש. אנו מזהים אוטומטית אפליקציות מותקנות, מדיה ואנשי קשר כדי ליצור רשימת מטלות למעבר חלק ומושלם.",
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -54,7 +54,7 @@ fun WelcomeScreen(onContinue: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Text("Start Scan", style = MaterialTheme.typography.titleMedium)
+            Text("התחל סריקה", style = MaterialTheme.typography.titleMedium)
         }
     }
 
