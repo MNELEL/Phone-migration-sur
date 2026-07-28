@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.content.Context
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -26,12 +27,29 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+// Form Factors
+enum class DeviceFormFactor(
+    val title: String,
+    val widthDp: Dp,
+    val heightDp: Dp,
+    val icon: ImageVector
+) {
+    MOBILE("נייד (310x540)", 310.dp, 540.dp, Icons.Default.Smartphone),
+    TABLET("טאבלט (470x380)", 470.dp, 380.dp, Icons.Default.Tablet),
+    FOLDABLE("מתקפל (400x500)", 400.dp, 500.dp, Icons.Default.Devices)
+}
 
 // Enums for Preview Customization
 enum class PreviewTab(val label: String, val icon: ImageVector) {
@@ -76,12 +94,24 @@ data class PreviewAppIcon(
     val isMigrated: Boolean = true
 )
 
+data class PrebuiltTemplateItem(
+    val id: String,
+    val title: String,
+    val category: String,
+    val description: String,
+    val icon: ImageVector
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LivePreviewScreen(
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("ui_design_drafts", Context.MODE_PRIVATE) }
+
     // Customization states
+    var selectedFormFactor by remember { mutableStateOf(DeviceFormFactor.MOBILE) }
     var selectedTab by remember { mutableStateOf(PreviewTab.HOME_LAUNCHER) }
     var selectedGrid by remember { mutableStateOf(GridOption.BALANCED) }
     var selectedIconShape by remember { mutableStateOf(IconShapeOption.SQUIRCLE) }
@@ -90,9 +120,58 @@ fun LivePreviewScreen(
     var isDarkMode by remember { mutableStateOf(true) }
     var isWidgetVisible by remember { mutableStateOf(true) }
     var isStorageWidgetVisible by remember { mutableStateOf(true) }
-    var fontScale by remember { mutableFloatStateOf(1f) } // 0.85f, 1f, 1.15f
+    var fontScale by remember { mutableFloatStateOf(1f) }
     var showGesturesBar by remember { mutableStateOf(true) }
     var liveFeedbackMsg by remember { mutableStateOf("שינויים משתקפים בזמן אמת בחלון התצוגה") }
+
+    // Auto-save state
+    var autoSaveEnabled by remember { mutableStateOf(true) }
+    var isSavingDraft by remember { mutableStateOf(false) }
+    var lastSavedTimestamp by remember { mutableStateOf(prefs.getString("last_saved", "טרם נשמר") ?: "טרם נשמר") }
+
+    // Pre-built Component Template Library state
+    var insertedComponents by remember {
+        mutableStateOf(
+            listOf("hero_banner", "storage_gauge", "live_speed")
+        )
+    }
+    var showLibrarySheet by remember { mutableStateOf(false) }
+    var showDesignTipsSheet by remember { mutableStateOf(false) }
+
+    // Available pre-built component templates
+    val libraryTemplates = remember {
+        listOf(
+            PrebuiltTemplateItem("hero_banner", "כרזת מעבר ראשית", "באנר", "כרזה מרכזית להצגת קצב הסנכרון והסטטוס", Icons.Default.CloudSync),
+            PrebuiltTemplateItem("storage_gauge", "כרטיס מד אחסון", "וידג'ט", "מד פריסת דיסק ונפח פנוי בזמן אמת", Icons.Default.Storage),
+            PrebuiltTemplateItem("live_speed", "מד רוחב פס וקצב", "וידג'ט", "תצוגת מהירות העברה ב-MB/s ותעבורת ענן", Icons.Default.Speed),
+            PrebuiltTemplateItem("device_admin", "פאנל הרשאות מנהל", "אבטחה", "חיווי פעיל להתקנה שקטה ושיבוט אפליקציות", Icons.Default.Security),
+            PrebuiltTemplateItem("cloud_backup", "תג גיבוי מוצפן", "אבטחה", "אינדיקטור להצפנת AES-256 בזמן מעבר", Icons.Default.Lock),
+            PrebuiltTemplateItem("quick_actions", "רשת פעולות מהירות", "פקדים", "כפתורי קיצור דרך להתחלת מעבר ואיפוס", Icons.Default.GridView)
+        )
+    }
+
+    // Auto-Save Effect
+    LaunchedEffect(selectedGrid, selectedIconShape, selectedWallpaper, selectedAccent, fontScale, insertedComponents, selectedFormFactor, autoSaveEnabled) {
+        if (autoSaveEnabled) {
+            delay(7000) // Auto-save after 7 seconds of quiet state
+            isSavingDraft = true
+            val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+            prefs.edit()
+                .putString("grid", selectedGrid.name)
+                .putString("shape", selectedIconShape.name)
+                .putString("wallpaper", selectedWallpaper.name)
+                .putString("accent", selectedAccent.name)
+                .putFloat("font_scale", fontScale)
+                .putString("form_factor", selectedFormFactor.name)
+                .putString("inserted_components", insertedComponents.joinToString(","))
+                .putString("last_saved", timeStr)
+                .apply()
+            delay(400)
+            isSavingDraft = false
+            lastSavedTimestamp = timeStr
+            liveFeedbackMsg = "העיצוב נשמר אוטומטית ($timeStr)"
+        }
+    }
 
     // Apps list
     val appsList = remember {
@@ -112,6 +191,9 @@ fun LivePreviewScreen(
         )
     }
 
+    val animatedWidth by animateDpAsState(targetValue = selectedFormFactor.widthDp, label = "widthAnim")
+    val animatedHeight by animateDpAsState(targetValue = selectedFormFactor.heightDp, label = "heightAnim")
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -122,6 +204,27 @@ fun LivePreviewScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showDesignTipsSheet = true }) {
+                        Icon(Icons.Default.Lightbulb, contentDescription = "הנחיות עיצוב M3", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = {
+                        // Manual Save
+                        val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                        prefs.edit()
+                            .putString("grid", selectedGrid.name)
+                            .putString("shape", selectedIconShape.name)
+                            .putString("wallpaper", selectedWallpaper.name)
+                            .putString("accent", selectedAccent.name)
+                            .putFloat("font_scale", fontScale)
+                            .putString("form_factor", selectedFormFactor.name)
+                            .putString("inserted_components", insertedComponents.joinToString(","))
+                            .putString("last_saved", timeStr)
+                            .apply()
+                        lastSavedTimestamp = timeStr
+                        liveFeedbackMsg = "הטיוטה נשמרה ידנית בהצלחה ($timeStr)"
+                    }) {
+                        Icon(Icons.Default.Save, contentDescription = "שמור טיוטה")
+                    }
                     IconButton(onClick = {
                         selectedGrid = GridOption.BALANCED
                         selectedIconShape = IconShapeOption.SQUIRCLE
@@ -131,6 +234,7 @@ fun LivePreviewScreen(
                         isWidgetVisible = true
                         isStorageWidgetVisible = true
                         fontScale = 1f
+                        insertedComponents = listOf("hero_banner", "storage_gauge", "live_speed")
                         liveFeedbackMsg = "הגדרות התצוגה אופסו לברירת המחדל"
                     }) {
                         Icon(Icons.Default.Refresh, contentDescription = "איפוס עיצוב")
@@ -145,9 +249,9 @@ fun LivePreviewScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Live Status Banner
+            // Live Status Banner & Auto-Save Indicator
             Surface(
-                color = selectedAccent.color.copy(alpha = 0.15f),
+                color = selectedAccent.color.copy(alpha = 0.12f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -172,13 +276,21 @@ fun LivePreviewScreen(
                         )
                     }
 
-                    Text(
-                        text = "LIVE UI ENGINE",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = selectedAccent.color,
-                        letterSpacing = 1.sp
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isSavingDraft) {
+                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = selectedAccent.color)
+                            Spacer(Modifier.width(6.dp))
+                            Text("שומר...", style = MaterialTheme.typography.labelSmall, color = selectedAccent.color)
+                        } else {
+                            Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(14.dp), tint = selectedAccent.color)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "נשמר: $lastSavedTimestamp",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
@@ -214,6 +326,45 @@ fun LivePreviewScreen(
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
 
+                // Form Factor & Screen Size Selector Tool
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Devices, contentDescription = null, tint = selectedAccent.color)
+                                Spacer(Modifier.width(8.dp))
+                                Text("גודל מסך ותבנית מכשיר:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                DeviceFormFactor.values().forEach { formFactor ->
+                                    FilterChip(
+                                        selected = selectedFormFactor == formFactor,
+                                        onClick = {
+                                            selectedFormFactor = formFactor
+                                            liveFeedbackMsg = "גודל תצוגה שונה ל-${formFactor.title}"
+                                        },
+                                        label = { Text(formFactor.title.split(" ")[0], fontSize = 11.sp) },
+                                        leadingIcon = {
+                                            Icon(formFactor.icon, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Live Phone Device Window Rendering
                 item {
                     Column(
@@ -221,7 +372,7 @@ fun LivePreviewScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "חלון תצוגת מכשיר היעד (Target Device Render Window)",
+                            text = "חלון תצוגת מכשיר היעד (${selectedFormFactor.title})",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -229,14 +380,14 @@ fun LivePreviewScreen(
 
                         Spacer(Modifier.height(10.dp))
 
-                        // Device Mockup Frame Container
+                        // Device Mockup Frame Container with Smooth Size Transition
                         Surface(
                             modifier = Modifier
-                                .width(310.dp)
-                                .height(560.dp)
-                                .shadow(16.dp, RoundedCornerShape(38.dp))
-                                .border(4.dp, Color(0xFF2C2C2E), RoundedCornerShape(38.dp)),
-                            shape = RoundedCornerShape(38.dp),
+                                .width(animatedWidth)
+                                .height(animatedHeight)
+                                .shadow(16.dp, RoundedCornerShape(36.dp))
+                                .border(4.dp, Color(0xFF2C2C2E), RoundedCornerShape(36.dp)),
+                            shape = RoundedCornerShape(36.dp),
                             color = if (isDarkMode) Color(0xFF101010) else Color(0xFFF5F5F7)
                         ) {
                             Box(modifier = Modifier.fillMaxSize()) {
@@ -295,13 +446,16 @@ fun LivePreviewScreen(
                                                     showWidget = isWidgetVisible,
                                                     showStorageWidget = isStorageWidgetVisible,
                                                     fontScale = fontScale,
-                                                    apps = appsList
+                                                    apps = appsList,
+                                                    insertedComponents = insertedComponents,
+                                                    formFactor = selectedFormFactor
                                                 )
                                             }
                                             PreviewTab.MIGRATION_CARD -> {
                                                 MigrationCardComposition(
                                                     accentColor = selectedAccent.color,
-                                                    fontScale = fontScale
+                                                    fontScale = fontScale,
+                                                    insertedComponents = insertedComponents
                                                 )
                                             }
                                             PreviewTab.LOCK_SCREEN -> {
@@ -336,6 +490,71 @@ fun LivePreviewScreen(
                                                 Icon(Icons.Default.Circle, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                                 Icon(Icons.Default.CropSquare, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // UI Component & Template Library Button
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Layers, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text("ספריית תבניות ורכיבי UI", fontWeight = FontWeight.Bold)
+                                        Text("בחר והוסף רכיבים מוכנים מראש לקומפוזיציה", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+
+                                Button(
+                                    onClick = { showLibrarySheet = true },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("הוסף רכיבים", fontSize = 12.sp)
+                                }
+                            }
+
+                            if (insertedComponents.isNotEmpty()) {
+                                Spacer(Modifier.height(10.dp))
+                                Text("רכיבים פעילים בתצוגה:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(6.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    items(insertedComponents) { compId ->
+                                        val template = libraryTemplates.find { it.id == compId }
+                                        template?.let { item ->
+                                            InputChip(
+                                                selected = true,
+                                                onClick = { },
+                                                label = { Text(item.title, fontSize = 11.sp) },
+                                                trailingIcon = {
+                                                    Icon(
+                                                        Icons.Default.Close,
+                                                        contentDescription = "הסר",
+                                                        modifier = Modifier
+                                                            .size(14.dp)
+                                                            .clickable {
+                                                                insertedComponents = insertedComponents.filter { it != compId }
+                                                                liveFeedbackMsg = "הרכיב '${item.title}' הוסר מהתצוגה"
+                                                            }
+                                                    )
+                                                }
+                                            )
                                         }
                                     }
                                 }
@@ -498,7 +717,7 @@ fun LivePreviewScreen(
                     }
                 }
 
-                // Widgets & Layout Options Toggles
+                // Auto-Save & Storage Preferences
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -507,9 +726,9 @@ fun LivePreviewScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Widgets, contentDescription = null, tint = selectedAccent.color)
+                                Icon(Icons.Default.AutoMode, contentDescription = null, tint = selectedAccent.color)
                                 Spacer(Modifier.width(10.dp))
-                                Text("רכיבים ווידג'טים במסך הבית", fontWeight = FontWeight.Bold)
+                                Text("מנגנון שמירה אוטומטית (Auto-Save Engine)", fontWeight = FontWeight.Bold)
                             }
 
                             Spacer(Modifier.height(12.dp))
@@ -519,81 +738,14 @@ fun LivePreviewScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("הצג ווידג'ט סטטוס מעבר וסנכרון", style = MaterialTheme.typography.bodySmall)
-                                Switch(
-                                    checked = isWidgetVisible,
-                                    onCheckedChange = {
-                                        isWidgetVisible = it
-                                        liveFeedbackMsg = if (it) "ווידג'ט מעבר נגלה" else "ווידג'ט מעבר הוסתר"
-                                    }
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("הצג ווידג'ט נפח אחסון ודיסק", style = MaterialTheme.typography.bodySmall)
-                                Switch(
-                                    checked = isStorageWidgetVisible,
-                                    onCheckedChange = {
-                                        isStorageWidgetVisible = it
-                                        liveFeedbackMsg = if (it) "ווידג'ט אחסון נגלה" else "ווידג'ט אחסון הוסתר"
-                                    }
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("פס ניווט במחוות (Gestures Bar)", style = MaterialTheme.typography.bodySmall)
-                                Switch(
-                                    checked = showGesturesBar,
-                                    onCheckedChange = { showGesturesBar = it }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Font Scaling Control
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.FormatSize, contentDescription = null, tint = selectedAccent.color)
-                                Spacer(Modifier.width(10.dp))
-                                Text("גודל גופנים וקנה מידה (Text Scale)", fontWeight = FontWeight.Bold)
-                            }
-
-                            Spacer(Modifier.height(10.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf(
-                                    Pair("קטן (0.85x)", 0.85f),
-                                    Pair("רציף (1.0x)", 1.0f),
-                                    Pair("מוגדל (1.15x)", 1.15f)
-                                ).forEach { (label, scale) ->
-                                    FilterChip(
-                                        selected = fontScale == scale,
-                                        onClick = {
-                                            fontScale = scale
-                                            liveFeedbackMsg = "גודל הטקסט עודכן ל-$label"
-                                        },
-                                        label = { Text(label, fontSize = 11.sp) },
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                Column {
+                                    Text("שמירת טיוטה ברקע בזמן אמת", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                    Text("שומר שינויים ב-SharedPreferences מקומי כל 7 שניות", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
+                                Switch(
+                                    checked = autoSaveEnabled,
+                                    onCheckedChange = { autoSaveEnabled = it }
+                                )
                             }
                         }
                     }
@@ -623,6 +775,128 @@ fun LivePreviewScreen(
             }
         }
     }
+
+    // UI Component Template Library Dialog / Sheet
+    if (showLibrarySheet) {
+        AlertDialog(
+            onDismissRequest = { showLibrarySheet = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Layers, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("ספריית רכיבים ותבניות UI מוכנות")
+                }
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(libraryTemplates) { item ->
+                        val isAdded = insertedComponents.contains(item.id)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(item.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text(item.title, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text(item.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+
+                                Button(
+                                    onClick = {
+                                        if (isAdded) {
+                                            insertedComponents = insertedComponents.filter { it != item.id }
+                                        } else {
+                                            insertedComponents = insertedComponents + item.id
+                                        }
+                                    },
+                                    colors = if (isAdded) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors(),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text(if (isAdded) "הסר" else "הוסף לתצוגה", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showLibrarySheet = false }) {
+                    Text("סגור")
+                }
+            }
+        )
+    }
+
+    // Material Design 3 Design Tips Overlay
+    if (showDesignTipsSheet) {
+        AlertDialog(
+            onDismissRequest = { showDesignTipsSheet = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lightbulb, contentDescription = null, tint = Color(0xFFFFB703))
+                    Spacer(Modifier.width(8.dp))
+                    Text("הנחיות וטיפי עיצוב (Material Design 3)")
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    M3TipItem("יחס ניגודיות וצבעי M3", "צבע הדגש '${selectedAccent.title}' שנבחר מספק ניגודיות גבוהה מעל 4.5:1 מול הרקע הכהה, בהתאם לסטנדרט WCAG AA.")
+                    M3TipItem("נגישות Touch Targets", "כל האייקונים והכפתורים ברשת המערכת מוגדרים עם מרווח מגע מינימלי של 48dp x 48dp להקשה נוחה.")
+                    M3TipItem("רספונסיביות למסכים רחבים", "בעת מעבר למצב טאבלט (Tablet) או מתקפל (Foldable), הפריסה מתאימה עצמה אוטומטית לקומפוזיציית Supporting Pane.")
+                    M3TipItem("שמירה ברקע (Auto-Save)", "כל שינוי במבנה, בצבעים ובגופנים נשמר אוטומטית למניעת אובדן עבודה.")
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showDesignTipsSheet = false }) {
+                    Text("אישור והבנתי")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun M3TipItem(title: String, description: String) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(2.dp))
+            Text(description, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp)
+        }
+    }
 }
 
 // Composables rendering phone screens inside mockup
@@ -634,58 +908,120 @@ fun HomeLauncherComposition(
     showWidget: Boolean,
     showStorageWidget: Boolean,
     fontScale: Float,
-    apps: List<PreviewAppIcon>
+    apps: List<PreviewAppIcon>,
+    insertedComponents: List<String>,
+    formFactor: DeviceFormFactor
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Widget 1: Migration Progress Status
-        if (showWidget) {
+    val isWideScreen = formFactor == DeviceFormFactor.TABLET
+
+    if (isWideScreen) {
+        // Two-pane supporting layout for tablets
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Left Pane: Components & Widgets
+            Column(
+                modifier = Modifier
+                    .weight(0.45f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                insertedComponents.forEach { compId ->
+                    RenderInsertedComponent(compId, accentColor, fontScale)
+                }
+            }
+
+            // Right Pane: Apps Grid
+            Box(
+                modifier = Modifier
+                    .weight(0.55f)
+                    .fillMaxHeight()
+            ) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(gridOption.columns),
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(apps.take(gridOption.columns * gridOption.rows)) { app ->
+                        AppIconItem(app, iconShape, fontScale)
+                    }
+                }
+            }
+        }
+    } else {
+        // Mobile vertical layout
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Render inserted components
+            insertedComponents.forEach { compId ->
+                RenderInsertedComponent(compId, accentColor, fontScale)
+            }
+
+            // Apps Grid
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(gridOption.columns),
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(apps.take(gridOption.columns * gridOption.rows)) { app ->
+                    AppIconItem(app, iconShape, fontScale)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RenderInsertedComponent(compId: String, accentColor: Color, fontScale: Float) {
+    when (compId) {
+        "hero_banner" -> {
             Surface(
                 color = Color.Black.copy(alpha = 0.45f),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, accentColor.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                    .border(1.dp, accentColor.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
             ) {
                 Row(
-                    modifier = Modifier.padding(10.dp),
+                    modifier = Modifier.padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(28.dp)
                             .background(accentColor, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.CloudSync, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.CloudSync, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     }
 
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(8.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "סנכרון ענן פעיל - 85%",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = (11 * fontScale).sp
+                            fontSize = (10 * fontScale).sp
                         )
                         Text(
                             text = "12/18 אפליקציות הועברו",
                             color = Color.White.copy(alpha = 0.7f),
-                            fontSize = (9 * fontScale).sp
+                            fontSize = (8 * fontScale).sp
                         )
                     }
                 }
             }
         }
-
-        // Widget 2: Storage Status
-        if (showStorageWidget) {
+        "storage_gauge" -> {
             Surface(
                 color = Color.Black.copy(alpha = 0.45f),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -699,7 +1035,7 @@ fun HomeLauncherComposition(
                         Text(
                             text = "אחסון פנוי: 84.2 GB",
                             color = Color.White,
-                            fontSize = (10 * fontScale).sp,
+                            fontSize = (9 * fontScale).sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -713,39 +1049,54 @@ fun HomeLauncherComposition(
                 }
             }
         }
-
-        // Apps Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(gridOption.columns),
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(apps.take(gridOption.columns * gridOption.rows)) { app ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(2.dp)
+        "live_speed" -> {
+            Surface(
+                color = Color.Black.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(iconShape.cornerPercent))
-                            .background(app.containerColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(app.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Speed, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("קצב העברה: 82 MB/s", color = Color.White, fontSize = (9 * fontScale).sp)
                     }
-
-                    Spacer(Modifier.height(3.dp))
-
-                    Text(
-                        text = app.name,
-                        color = Color.White,
-                        fontSize = (9 * fontScale).sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                }
+            }
+        }
+        "device_admin" -> {
+            Surface(
+                color = Color.Black.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Security, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("מנהל מכשיר: התקנה שקטה פעילה", color = Color.White, fontSize = (9 * fontScale).sp)
+                }
+            }
+        }
+        "cloud_backup" -> {
+            Surface(
+                color = Color.Black.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("הצפנת AES-256 פעילה במעבר", color = Color.White, fontSize = (9 * fontScale).sp)
                 }
             }
         }
@@ -753,9 +1104,39 @@ fun HomeLauncherComposition(
 }
 
 @Composable
+fun AppIconItem(app: PreviewAppIcon, iconShape: IconShapeOption, fontScale: Float) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(iconShape.cornerPercent))
+                .background(app.containerColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(app.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+        }
+
+        Spacer(Modifier.height(3.dp))
+
+        Text(
+            text = app.name,
+            color = Color.White,
+            fontSize = (8.5f * fontScale).sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 fun MigrationCardComposition(
     accentColor: Color,
-    fontScale: Float
+    fontScale: Float,
+    insertedComponents: List<String>
 ) {
     Column(
         modifier = Modifier
