@@ -13,11 +13,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.ui.components.DataSafetyDialog
 import com.example.ui.components.OnboardingDialog
 
 @Composable
 fun WelcomeScreen(onContinue: () -> Unit) {
     var showOnboarding by remember { mutableStateOf(false) }
+    var showDataSafety by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -56,7 +58,20 @@ fun WelcomeScreen(onContinue: () -> Unit) {
         ) {
             Text("התחל סריקה", style = MaterialTheme.typography.titleMedium)
         }
+
+        Spacer(Modifier.height(12.dp))
+
+        TextButton(
+            onClick = { showDataSafety = true }
+        ) {
+            Text("🔒 בטיחות נתונים וגילוי נאות (Data Safety)", style = MaterialTheme.typography.labelLarge)
+        }
     }
+
+    DataSafetyDialog(
+        showDialog = showDataSafety,
+        onDismiss = { showDataSafety = false }
+    )
 
     OnboardingDialog(
         showDialog = showOnboarding,

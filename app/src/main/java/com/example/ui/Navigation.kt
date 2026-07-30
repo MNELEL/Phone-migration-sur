@@ -35,7 +35,19 @@ fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
                 onNavigateToReport = { navController.navigate("report") },
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToDeviceAdmin = { navController.navigate("device_admin_cloning") },
-                onNavigateToLivePreview = { navController.navigate("live_preview") }
+                onNavigateToLivePreview = { navController.navigate("live_preview") },
+                onNavigateToCamera = { navController.navigate("camera") },
+                onNavigateToAppList = { navController.navigate("app_list") }
+            )
+        }
+        composable("camera") {
+            CameraScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("app_list") {
+            AppListScreen(
+                onBack = { navController.popBackStack() }
             )
         }
         composable("dashboard") {

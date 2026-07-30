@@ -11,7 +11,9 @@ data class AppEntity(
     val installTime: Long,
     val canBackup: Boolean,
     val category: String,
-    val completed: Boolean = false
+    val completed: Boolean = false,
+    val size: Long = 0L,
+    val usageFrequency: Int = 0
 )
 
 @Entity(tableName = "media_status")

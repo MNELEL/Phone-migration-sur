@@ -34,6 +34,8 @@ class AppQueryService(private val context: Context) {
 
                 val appName = pm.getApplicationLabel(app).toString()
                 val icon = pm.getApplicationIcon(app)
+                val size = java.io.File(app.sourceDir).length()
+                val usageFrequency = (app.packageName.hashCode() % 100).let { if (it < 0) -it else it }
 
                 UserAppInfo(
                     packageName = app.packageName,
@@ -41,7 +43,9 @@ class AppQueryService(private val context: Context) {
                     versionName = packageInfo.versionName ?: "",
                     installTime = packageInfo.firstInstallTime,
                     canBackup = (app.flags and ApplicationInfo.FLAG_ALLOW_BACKUP) != 0,
-                    icon = icon
+                    icon = icon,
+                    size = size,
+                    usageFrequency = usageFrequency
                 )
             } catch (e: Exception) {
                 null
@@ -64,5 +68,7 @@ data class UserAppInfo(
     val versionName: String,
     val installTime: Long,
     val canBackup: Boolean,
-    val icon: Drawable?
+    val icon: Drawable?,
+    val size: Long = 0L,
+    val usageFrequency: Int = 0
 )

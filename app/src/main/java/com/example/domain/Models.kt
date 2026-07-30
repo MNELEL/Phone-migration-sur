@@ -47,5 +47,7 @@ data class ChecklistItem(
     val action: String?,
     val verified: Boolean,
     val completed: Boolean,
-    val category: String = "ESSENTIAL"
+    val category: String = "ESSENTIAL",
+    val size: Long = 0L,
+    val usageFrequency: Int = 0
 )

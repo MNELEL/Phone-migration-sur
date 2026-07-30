@@ -22,8 +22,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.service.ProjectZipExporter
+import com.example.service.ZipExportResult
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +47,11 @@ fun SettingsScreen(
     var scheduledTime by remember { mutableStateOf("02:00") } // Default 2 AM
     var requireCharging by remember { mutableStateOf(true) }
     var requireWifiOnly by remember { mutableStateOf(true) }
+
+    val context = LocalContext.current
+    var isExportingZip by remember { mutableStateOf(false) }
+    var zipExportResult by remember { mutableStateOf<ZipExportResult?>(null) }
+    var showZipExportDialog by remember { mutableStateOf(false) }
 
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showDataDeleteDialog by remember { mutableStateOf(false) }
@@ -335,6 +343,23 @@ fun SettingsScreen(
                             Spacer(Modifier.width(8.dp))
                             Text("פתח תצוגה מקדימה בזמן אמת (Live UI Preview)")
                         }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        FilledTonalButton(
+                            onClick = {
+                                isExportingZip = true
+                                val result = ProjectZipExporter.exportProjectZip(context)
+                                zipExportResult = result
+                                isExportingZip = false
+                                showZipExportDialog = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.FolderZip, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("ייצא קובצי פרויקט וקונפיגורציות ל-ZIP (Android Studio)")
+                        }
                     }
                 }
             }
@@ -496,6 +521,49 @@ fun SettingsScreen(
             confirmButton = {
                 Button(onClick = { showPasswordDialog = false }) {
                     Text("שמור מפתח")
+                }
+            }
+        )
+    }
+
+    if (showZipExportDialog && zipExportResult != null) {
+        val result = zipExportResult!!
+        AlertDialog(
+            onDismissRequest = { showZipExportDialog = false },
+            icon = { Icon(Icons.Default.FolderZip, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("ייצוא פרויקט ZIP ל-Android Studio הושלם!") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("נוצר קובץ ארכיון מלא המכיל את כל קובצי הקונפיגורציה, Gradle build files, Manifest, Resources וקוד המקור:")
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("שם הקובץ: ${result.zipFile.name}", fontWeight = FontWeight.Bold)
+                            Text("גודל הקובץ: ${result.formattedSize}")
+                            Text("מספר קבצים ב-ZIP: ${result.fileCount}")
+                            Text("נתיב שמירה: ${result.zipFile.parent}", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        ProjectZipExporter.shareZipFile(context, result.zipFile)
+                    }
+                ) {
+                    Icon(Icons.Default.CloudUpload, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("שתף / שמור קובץ ZIP")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showZipExportDialog = false }) {
+                    Text("סגור")
                 }
             }
         )

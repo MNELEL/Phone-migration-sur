@@ -30,7 +30,8 @@ data class ScanState(
     val backupMessage: String = "",
     val isRestoring: Boolean = false,
     val restoreProgress: Float = 0f,
-    val restoreMessage: String = ""
+    val restoreMessage: String = "",
+    val snackbarMessage: String? = null
 )
 
 class ScanViewModel(application: Application) : AndroidViewModel(application) {
@@ -116,7 +117,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                             name = app.appName,
                             type = InventoryType.APP,
                             packageName = app.packageName,
-                            size = 0L,
+                            size = app.size,
                             priority = if (app.category == "SECURITY" || app.category == "FINANCE") Priority.ESSENTIAL else Priority.NORMAL,
                             category = app.category
                         )
@@ -134,7 +135,9 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                                 instruction = instruction,
                                 action = action,
                                 verified = false,
-                                completed = app.completed
+                                completed = app.completed,
+                                size = app.size,
+                                usageFrequency = app.usageFrequency
                             )
                         )
                     }
@@ -206,7 +209,9 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                         installTime = app.installTime,
                         canBackup = app.canBackup,
                         category = category,
-                        completed = false
+                        completed = false,
+                        size = app.size,
+                        usageFrequency = app.usageFrequency
                     )
                 }
                 dao.insertApps(appEntities)
@@ -322,7 +327,8 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             _state.value = _state.value.copy(
                 isBackingUp = false,
                 backupProgress = 1f,
-                backupMessage = "הגיבוי לענן הושלם בהצלחה!"
+                backupMessage = "הגיבוי לענן הושלם בהצלחה!",
+                snackbarMessage = "נתוני המעבר סונכרנו בהצלחה לענן Firebase!"
             )
             
             loadFromDatabase()
@@ -434,6 +440,14 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             
             else -> "PRODUCTIVITY"
         }
+    }
+
+    fun showSnackbarMessage(msg: String) {
+        _state.value = _state.value.copy(snackbarMessage = msg)
+    }
+
+    fun clearSnackbarMessage() {
+        _state.value = _state.value.copy(snackbarMessage = null)
     }
 }
 

@@ -6,12 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [AppEntity::class, MediaEntity::class, ContactEntity::class],
-    version = 1,
+    entities = [AppEntity::class, MediaEntity::class, ContactEntity::class, ContentItem::class],
+    version = 3,
     exportSchema = false
 )
 abstract class MigrationDatabase : RoomDatabase() {
     abstract fun migrationDao(): MigrationDao
+    abstract fun contentItemDao(): ContentItemDao
 
     companion object {
         @Volatile

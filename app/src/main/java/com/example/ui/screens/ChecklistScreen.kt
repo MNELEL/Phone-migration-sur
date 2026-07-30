@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,10 +40,15 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.ui.text.style.TextAlign
 import com.example.domain.ChecklistItem
 import com.example.domain.CoverageSource
 import com.example.ui.ScanViewModel
+import com.example.ui.components.DataSafetyDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,12 +62,27 @@ fun ChecklistScreen(
     onNavigateToReport: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDeviceAdmin: () -> Unit = {},
-    onNavigateToLivePreview: () -> Unit = {}
+    onNavigateToLivePreview: () -> Unit = {},
+    onNavigateToCamera: () -> Unit = {},
+    onNavigateToAppList: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryFilter by remember { mutableStateOf("ALL") } // "ALL", "ESSENTIAL", "PRODUCTIVITY", "GAMES"
+    var sortOption by remember { mutableStateOf("DEFAULT") } // "DEFAULT", "SIZE", "USAGE"
+    var showDataSafetyDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+
+    LaunchedEffect(state.snackbarMessage) {
+        state.snackbarMessage?.let { msg ->
+            snackbarHostState.showSnackbar(
+                message = msg,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearSnackbarMessage()
+        }
+    }
 
     val filteredList = state.checklist.filter { item ->
         val matchesQuery = item.title.contains(searchQuery, ignoreCase = true) ||
@@ -90,6 +113,9 @@ fun ChecklistScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showDataSafetyDialog = true }) {
+                        Icon(androidx.compose.material.icons.Icons.Default.PrivacyTip, contentDescription = "בטיחות נתונים")
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(androidx.compose.material.icons.Icons.Default.Settings, contentDescription = "הגדרות")
                     }
@@ -101,6 +127,7 @@ fun ChecklistScreen(
                 )
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         LazyColumn(
@@ -126,6 +153,27 @@ fun ChecklistScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    item {
+                        QuickToolChip(
+                            title = "סורק ומצלמה",
+                            icon = Icons.Default.CameraAlt,
+                            onClick = onNavigateToCamera
+                        )
+                    }
+                    item {
+                        QuickToolChip(
+                            title = "ייצוא פרויקט ZIP",
+                            icon = Icons.Default.FolderZip,
+                            onClick = onNavigateToSettings
+                        )
+                    }
+                    item {
+                        QuickToolChip(
+                            title = "אפליקציות מותקנות",
+                            icon = Icons.Default.Android,
+                            onClick = onNavigateToAppList
+                        )
+                    }
                     item {
                         QuickToolChip(
                             title = "נפח אחסון",
@@ -204,6 +252,7 @@ fun ChecklistScreen(
                         Spacer(Modifier.height(16.dp))
                         val completed = state.checklist.count { it.completed }
                         val total = state.checklist.size
+                        val percent = if (total == 0) 0 else (completed * 100) / total
                         val progressFloat = if (total == 0) 0f else completed.toFloat() / total.toFloat()
                         LinearProgressIndicator(
                             progress = { progressFloat },
@@ -215,6 +264,66 @@ fun ChecklistScreen(
                 }
             }
             
+            item {
+                val total = state.checklist.size
+                val completed = state.checklist.count { it.completed }
+                val isAllCompleted = total > 0 && total == completed
+
+                AnimatedVisibility(
+                    visible = isAllCompleted,
+                    enter = expandVertically() + fadeIn() + scaleIn(initialScale = 0.8f),
+                    exit = shrinkVertically() + fadeOut() + scaleOut()
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val infiniteTransition = rememberInfiniteTransition()
+                            val scale by infiniteTransition.animateFloat(
+                                initialValue = 1f,
+                                targetValue = 1.2f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(800, easing = LinearOutSlowInEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                )
+                            )
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.CheckCircle,
+                                contentDescription = "הושלם",
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .scale(scale),
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "כל הכבוד!",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "כל משימות ההעברה הושלמו בהצלחה. המכשיר שלך מוכן לשימוש!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+
             item {
                 CloudSyncCard(state = state, viewModel = viewModel)
             }
@@ -301,6 +410,44 @@ fun ChecklistScreen(
             }
 
             item {
+                Spacer(Modifier.height(8.dp))
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        Text(
+                            text = "מיין לפי:",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(top = 8.dp, end = 8.dp)
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = sortOption == "DEFAULT",
+                            onClick = { sortOption = "DEFAULT" },
+                            label = { Text("ברירת מחדל") }
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = sortOption == "SIZE",
+                            onClick = { sortOption = "SIZE" },
+                            label = { Text("גודל קובץ") }
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = sortOption == "USAGE",
+                            onClick = { sortOption = "USAGE" },
+                            label = { Text("תדירות שימוש") }
+                        )
+                    }
+                }
+            }
+
+            item {
                 Spacer(Modifier.height(16.dp))
                 Text(
                     text = "משימות העברה מסווגות",
@@ -310,10 +457,16 @@ fun ChecklistScreen(
                 )
             }
             
-            val sortedList = filteredList.sortedBy { it.source != CoverageSource.GOOGLE_BUILTIN }
+            val sortedList = filteredList.sortedWith(
+                when (sortOption) {
+                    "SIZE" -> compareByDescending<ChecklistItem> { it.size }
+                    "USAGE" -> compareByDescending<ChecklistItem> { it.usageFrequency }
+                    else -> compareBy<ChecklistItem> { it.source != CoverageSource.GOOGLE_BUILTIN }
+                }
+            )
             
             items(sortedList) { item ->
-                ChecklistRow(item = item) {
+                ChecklistRow(item = item, sortOption = sortOption) {
                     viewModel.toggleChecklistItem(item.id)
                 }
             }
@@ -322,11 +475,16 @@ fun ChecklistScreen(
                 Spacer(Modifier.height(24.dp))
             }
         }
+
+        DataSafetyDialog(
+            showDialog = showDataSafetyDialog,
+            onDismiss = { showDataSafetyDialog = false }
+        )
     }
 }
 
 @Composable
-fun ChecklistRow(item: ChecklistItem, onChecked: () -> Unit) {
+fun ChecklistRow(item: ChecklistItem, sortOption: String, onChecked: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -358,6 +516,20 @@ fun ChecklistRow(item: ChecklistItem, onChecked: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (sortOption == "SIZE" && item.size > 0) {
+                    val formattedSize = if (item.size > 1024 * 1024) "${item.size / (1024 * 1024)} MB" else "${item.size / 1024} KB"
+                    Text(
+                        text = "גודל: $formattedSize",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else if (sortOption == "USAGE" && item.usageFrequency > 0) {
+                    Text(
+                        text = "שימוש: ${item.usageFrequency} פעמים",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
             
             val sourceLabel = when (item.source) {
