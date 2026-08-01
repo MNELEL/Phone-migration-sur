@@ -98,7 +98,7 @@ dependencies {
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
-  implementation(libs.firebase.crashlytics)
+  // implementation(libs.firebase.crashlytics)
   // Uncomment to use Firestore:
   implementation(libs.firebase.firestore)
 

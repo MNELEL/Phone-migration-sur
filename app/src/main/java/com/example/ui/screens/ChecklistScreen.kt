@@ -45,6 +45,11 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.FileDownload
+import com.example.service.ChecklistExporter
 import com.example.domain.ChecklistItem
 import com.example.domain.CoverageSource
 import com.example.ui.ScanViewModel
@@ -71,6 +76,8 @@ fun ChecklistScreen(
     var selectedCategoryFilter by remember { mutableStateOf("ALL") } // "ALL", "ESSENTIAL", "PRODUCTIVITY", "GAMES"
     var sortOption by remember { mutableStateOf("DEFAULT") } // "DEFAULT", "SIZE", "USAGE"
     var showDataSafetyDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var showPlayStoreDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -218,6 +225,20 @@ fun ChecklistScreen(
                     }
                     item {
                         QuickToolChip(
+                            title = "פרסום ב-Google Play",
+                            icon = Icons.Default.Storefront,
+                            onClick = { showPlayStoreDialog = true }
+                        )
+                    }
+                    item {
+                        QuickToolChip(
+                            title = "ייצוא PDF / TXT",
+                            icon = Icons.Default.PictureAsPdf,
+                            onClick = { showExportDialog = true }
+                        )
+                    }
+                    item {
+                        QuickToolChip(
                             title = "דוח סנכרון",
                             icon = androidx.compose.material.icons.Icons.Default.CheckCircle,
                             onClick = onNavigateToReport
@@ -235,18 +256,28 @@ fun ChecklistScreen(
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text("התקדמות העברה", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 val completed = state.checklist.count { it.completed }
                                 val total = state.checklist.size
                                 val percent = if (total == 0) 0 else (completed * 100) / total
                                 Text("${percent}%", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
-                            Button(
-                                onClick = { viewModel.shareChecklist(context) },
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                            ) {
-                                Text("ייצא רשימה (JSON)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Button(
+                                    onClick = { showExportDialog = true },
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("ייצוא PDF / TXT", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                OutlinedButton(
+                                    onClick = { viewModel.shareChecklist(context) },
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("JSON", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
                         Spacer(Modifier.height(16.dp))
@@ -319,6 +350,15 @@ fun ChecklistScreen(
                                 textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer
                             )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { showExportDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onTertiaryContainer, contentColor = MaterialTheme.colorScheme.tertiaryContainer)
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("ייצא דוח מעבר PDF / TXT לתיעוד", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -480,7 +520,158 @@ fun ChecklistScreen(
             showDialog = showDataSafetyDialog,
             onDismiss = { showDataSafetyDialog = false }
         )
+
+        ExportChecklistDialog(
+            showDialog = showExportDialog,
+            onDismiss = { showExportDialog = false },
+            checklistItems = state.checklist,
+            onExportSuccess = { viewModel.showSnackbarMessage(it) },
+            onExportError = { viewModel.showSnackbarMessage(it) }
+        )
+
+        PlayStorePublishingDialog(
+            showDialog = showPlayStoreDialog,
+            onDismiss = { showPlayStoreDialog = false },
+            viewModel = viewModel
+        )
     }
+}
+
+@Composable
+fun ExportChecklistDialog(
+    showDialog: Boolean,
+    onDismiss: () -> Unit,
+    checklistItems: List<ChecklistItem>,
+    onExportSuccess: (String) -> Unit,
+    onExportError: (String) -> Unit
+) {
+    if (!showDialog) return
+
+    val context = LocalContext.current
+    var selectedFormat by remember { mutableStateOf(ChecklistExporter.ExportFormat.PDF) }
+    var onlyCompleted by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.FileDownload,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("ייצוא רשימת מעבר", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    "ייצא את רשימת משימות ההעברה והסטטוס שלהן כקובץ PDF מעוצב או כקובץ טקסט מובנה למעקב ותיעוד אישי.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    "פורמט הקובץ:",
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedFormat == ChecklistExporter.ExportFormat.PDF,
+                        onClick = { selectedFormat = ChecklistExporter.ExportFormat.PDF },
+                        label = { Text("מסמך PDF") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.PictureAsPdf,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = selectedFormat == ChecklistExporter.ExportFormat.TEXT,
+                        onClick = { selectedFormat = ChecklistExporter.ExportFormat.TEXT },
+                        label = { Text("קובץ טקסט (.txt)") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(
+                        checked = onlyCompleted,
+                        onCheckedChange = { onlyCompleted = it }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("ייצא משימות שהושלמו בלבד", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        val result = ChecklistExporter.exportChecklist(
+                            context = context,
+                            items = checklistItems,
+                            format = selectedFormat,
+                            onlyCompleted = onlyCompleted
+                        )
+                        if (result != null) {
+                            ChecklistExporter.openExportedFile(context, result)
+                            onExportSuccess("הקובץ נוצר בהצלחה ונפתח!")
+                            onDismiss()
+                        } else {
+                            onExportError("שגיאה ביצירת הקובץ")
+                        }
+                    }
+                ) {
+                    Text("פתח קובץ")
+                }
+                Button(
+                    onClick = {
+                        val result = ChecklistExporter.exportChecklist(
+                            context = context,
+                            items = checklistItems,
+                            format = selectedFormat,
+                            onlyCompleted = onlyCompleted
+                        )
+                        if (result != null) {
+                            ChecklistExporter.shareExportedFile(context, result)
+                            onExportSuccess("הקובץ מוכן לשיתוף!")
+                            onDismiss()
+                        } else {
+                            onExportError("שגיאה ביצירת הקובץ")
+                        }
+                    }
+                ) {
+                    Text("שתף קובץ")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("ביטול")
+            }
+        }
+    )
 }
 
 @Composable

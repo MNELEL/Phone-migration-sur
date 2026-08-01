@@ -34,7 +34,7 @@ class AppQueryService(private val context: Context) {
 
                 val appName = pm.getApplicationLabel(app).toString()
                 val icon = pm.getApplicationIcon(app)
-                val size = java.io.File(app.sourceDir).length()
+                val size = app.sourceDir?.let { java.io.File(it).length() } ?: 0L
                 val usageFrequency = (app.packageName.hashCode() % 100).let { if (it < 0) -it else it }
 
                 UserAppInfo(

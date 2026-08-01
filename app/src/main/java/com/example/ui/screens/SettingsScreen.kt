@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Storefront
 import com.example.service.ProjectZipExporter
 import com.example.service.ZipExportResult
 
@@ -56,6 +57,7 @@ fun SettingsScreen(
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showDataDeleteDialog by remember { mutableStateOf(false) }
     var dataDeleteSuccessMessage by remember { mutableStateOf<String?>(null) }
+    var showPlayStoreDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -450,8 +452,56 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Storefront,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "צ'ק ליסט לפרסום ב-Google Play",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    text = "מדריך שלב-אחר-שלב לדרישות חתימה, מניפסט, כיווץ AAB ופרסום לחנות",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = { showPlayStoreDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.tertiaryContainer
+                            )
+                        ) {
+                            Text("פתח מדריך פרסום ל-Google Play", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
+
+    PlayStorePublishingDialog(
+        showDialog = showPlayStoreDialog,
+        onDismiss = { showPlayStoreDialog = false }
+    )
 
     if (showPrivacyDialog) {
         AlertDialog(

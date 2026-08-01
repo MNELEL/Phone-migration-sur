@@ -12,7 +12,6 @@ import androidx.compose.ui.Modifier
 import com.example.ui.MigrationNavigation
 import com.example.ui.theme.MyApplicationTheme
 import com.google.firebase.FirebaseApp
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,10 +22,8 @@ class MainActivity : ComponentActivity() {
       if (FirebaseApp.getApps(this).isEmpty()) {
         FirebaseApp.initializeApp(this)
       }
-      FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
-      FirebaseCrashlytics.getInstance().log("PhoneMigrate app launched with Crashlytics error monitoring enabled")
     } catch (e: Exception) {
-      Log.i("MainActivity", "Firebase / Crashlytics setup notice: ${e.message}")
+      Log.i("MainActivity", "Firebase setup notice: ${e.message}")
     }
 
     setContent {

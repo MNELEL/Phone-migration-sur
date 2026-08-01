@@ -274,6 +274,30 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addCustomChecklistItems(items: List<ChecklistItem>) {
+        viewModelScope.launch {
+            try {
+                val appEntities = items.map { item ->
+                    AppEntity(
+                        packageName = item.id,
+                        appName = item.title,
+                        versionName = "1.0",
+                        installTime = System.currentTimeMillis(),
+                        canBackup = true,
+                        category = item.category,
+                        completed = item.completed,
+                        size = item.size,
+                        usageFrequency = item.usageFrequency
+                    )
+                }
+                dao.insertApps(appEntities)
+                loadFromDatabase()
+            } catch (e: Exception) {
+                // Silently handle
+            }
+        }
+    }
+
     fun startCloudSync(code: String) {
         if (code.isBlank() || !cloudSyncService.isFirestoreAvailable()) return
         

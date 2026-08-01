@@ -110,7 +110,9 @@ class CloudSyncService(
                         "installTime" to it.installTime,
                         "canBackup" to it.canBackup,
                         "category" to it.category,
-                        "completed" to it.completed
+                        "completed" to it.completed,
+                        "size" to it.size,
+                        "usageFrequency" to it.usageFrequency
                     )
                 }
 
@@ -178,7 +180,9 @@ class CloudSyncService(
                         installTime = (map["installTime"] as? Number)?.toLong() ?: 0L,
                         canBackup = map["canBackup"] as? Boolean ?: true,
                         category = map["category"] as? String ?: "OTHER",
-                        completed = true // Fully restored
+                        completed = map["completed"] as? Boolean ?: true,
+                        size = (map["size"] as? Number)?.toLong() ?: 0L,
+                        usageFrequency = (map["usageFrequency"] as? Number)?.toInt() ?: 0
                     )
                 }
                 dao.insertApps(appsToInsert)
