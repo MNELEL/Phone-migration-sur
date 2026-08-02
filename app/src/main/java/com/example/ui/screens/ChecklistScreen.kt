@@ -1074,9 +1074,6 @@ fun GoogleDriveBackupCard(state: com.example.ui.ScanState, viewModel: ScanViewMo
 @Composable
 fun CloudRestoreCard(state: com.example.ui.ScanState, viewModel: ScanViewModel) {
     val context = LocalContext.current
-    val dpm = remember { context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager }
-    val adminComponent = remember { ComponentName(context, MyDeviceAdminReceiver::class.java) }
-    val isAdminActive = dpm.isAdminActive(adminComponent)
     val syncCode = state.syncCode
     var showSuccessToast by remember { mutableStateOf(false) }
 
@@ -1121,12 +1118,6 @@ fun CloudRestoreCard(state: com.example.ui.ScanState, viewModel: ScanViewModel) 
             if (syncCode == null) {
                 Text(
                     text = "אנא התחבר לקוד סנכרון של המכשיר הישן כדי למשוך את הגיבוי.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            } else if (!isAdminActive) {
-                Text(
-                    text = "עליך להפעיל תחילה את הרשאת מנהל מכשיר למעלה כדי לאפשר שחזור מערכת.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
