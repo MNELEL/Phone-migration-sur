@@ -221,8 +221,8 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 dao.insertApps(appEntities)
 
                 val mediaEntities = listOf(
-                    MediaEntity("PHOTOS", scanReport.media.photos, 0L, false),
-                    MediaEntity("VIDEOS", scanReport.media.videos, 0L, false)
+                    MediaEntity("PHOTOS", scanReport.media.photos, scanReport.media.photosSize, false),
+                    MediaEntity("VIDEOS", scanReport.media.videos, scanReport.media.videosSize, false)
                 )
                 dao.insertMediaStatus(mediaEntities)
 
