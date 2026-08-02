@@ -27,12 +27,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import com.example.service.MyDeviceAdminReceiver
-import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
@@ -66,10 +60,9 @@ fun ChecklistScreen(
     onNavigateToQrWizard: () -> Unit = {},
     onNavigateToReport: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToDeviceAdmin: () -> Unit = {},
+    onNavigateToAppList: () -> Unit = {},
     onNavigateToLivePreview: () -> Unit = {},
-    onNavigateToCamera: () -> Unit = {},
-    onNavigateToAppList: () -> Unit = {}
+    onNavigateToCamera: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
@@ -200,13 +193,6 @@ fun ChecklistScreen(
                             title = "יעד ענן",
                             icon = androidx.compose.material.icons.Icons.Default.Cloud,
                             onClick = onNavigateToCloudDestination
-                        )
-                    }
-                    item {
-                        QuickToolChip(
-                            title = "אשף QR",
-                            icon = androidx.compose.material.icons.Icons.Default.QrCode,
-                            onClick = onNavigateToQrWizard
                         )
                     }
                     item {
