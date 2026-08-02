@@ -43,14 +43,11 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private val db = MigrationDatabase.getDatabase(application)
     private val dao = db.migrationDao()
     private val cloudSyncService = com.example.service.CloudSyncService(dao, application)
-    private val cloudSyncService = com.example.service.CloudSyncService(dao, application)
 
     /** Exposed so screens (e.g. the migration orchestrator) can reuse the same
      * Firestore connection/listener instead of opening a second, competing one. */
     fun getCloudSyncService() = cloudSyncService
-
-    init {
-
+    
     init {
         _state.value = _state.value.copy(isCloudAvailable = cloudSyncService.isFirestoreAvailable())
         loadFromDatabase()
