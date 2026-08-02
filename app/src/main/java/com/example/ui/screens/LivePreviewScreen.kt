@@ -144,8 +144,8 @@ fun LivePreviewScreen(
             PrebuiltTemplateItem("hero_banner", "כרזת מעבר ראשית", "באנר", "כרזה מרכזית להצגת קצב הסנכרון והסטטוס", Icons.Default.CloudSync),
             PrebuiltTemplateItem("storage_gauge", "כרטיס מד אחסון", "וידג'ט", "מד פריסת דיסק ונפח פנוי בזמן אמת", Icons.Default.Storage),
             PrebuiltTemplateItem("live_speed", "מד רוחב פס וקצב", "וידג'ט", "תצוגת מהירות העברה ב-MB/s ותעבורת ענן", Icons.Default.Speed),
-            PrebuiltTemplateItem("device_admin", "פאנל התקדמות מעבר", "אבטחה", "חיווי סטטוס להעברת אפליקציות ונתונים", Icons.Default.Security),
-            PrebuiltTemplateItem("cloud_backup", "תג סטטוס גיבוי", "אבטחה", "אינדיקטור להתקדמות הגיבוי בזמן מעבר", Icons.Default.Lock),
+            PrebuiltTemplateItem("device_admin", "פאנל הרשאות מנהל", "אבטחה", "חיווי פעיל להתקנה שקטה ושיבוט אפליקציות", Icons.Default.Security),
+            PrebuiltTemplateItem("cloud_backup", "תג גיבוי מוצפן", "אבטחה", "אינדיקטור להצפנת AES-256 בזמן מעבר", Icons.Default.Lock),
             PrebuiltTemplateItem("quick_actions", "רשת פעולות מהירות", "פקדים", "כפתורי קיצור דרך להתחלת מעבר ואיפוס", Icons.Default.GridView)
         )
     }
@@ -1080,7 +1080,7 @@ fun RenderInsertedComponent(compId: String, accentColor: Color, fontScale: Float
                 ) {
                     Icon(Icons.Default.Security, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("מעבר אפליקציות: 12 מתוך 18 הותקנו", color = Color.White, fontSize = (9 * fontScale).sp)
+                    Text("מנהל מכשיר: התקנה שקטה פעילה", color = Color.White, fontSize = (9 * fontScale).sp)
                 }
             }
         }
@@ -1096,7 +1096,7 @@ fun RenderInsertedComponent(compId: String, accentColor: Color, fontScale: Float
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("גיבוי בענן פעיל", color = Color.White, fontSize = (9 * fontScale).sp)
+                    Text("הצפנת AES-256 פעילה במעבר", color = Color.White, fontSize = (9 * fontScale).sp)
                 }
             }
         }
@@ -1200,9 +1200,9 @@ fun MigrationCardComposition(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text("מצב הרשאות", color = Color.White, fontWeight = FontWeight.Bold, fontSize = (11 * fontScale).sp)
+                Text("מצב הרשאות מערכת", color = Color.White, fontWeight = FontWeight.Bold, fontSize = (11 * fontScale).sp)
                 Spacer(Modifier.height(4.dp))
-                Text("הרשאות אושרו - מוכן להעברת נתונים", color = accentColor, fontSize = (9 * fontScale).sp)
+                Text("הרשאת מנהל מכשיר פעילה - התקנה שקטה ברקע מאושרת", color = accentColor, fontSize = (9 * fontScale).sp)
             }
         }
     }

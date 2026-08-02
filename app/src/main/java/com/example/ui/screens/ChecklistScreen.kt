@@ -27,6 +27,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import com.example.service.MyDeviceAdminReceiver
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
@@ -40,6 +46,7 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FileDownload
@@ -60,9 +67,11 @@ fun ChecklistScreen(
     onNavigateToQrWizard: () -> Unit = {},
     onNavigateToReport: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToAppList: () -> Unit = {},
+    onNavigateToDeviceAdmin: () -> Unit = {},
     onNavigateToLivePreview: () -> Unit = {},
-    onNavigateToCamera: () -> Unit = {}
+    onNavigateToCamera: () -> Unit = {},
+    onNavigateToAppList: () -> Unit = {},
+    onNavigateToProTips: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
@@ -197,6 +206,13 @@ fun ChecklistScreen(
                     }
                     item {
                         QuickToolChip(
+                            title = "אשף QR",
+                            icon = androidx.compose.material.icons.Icons.Default.QrCode,
+                            onClick = onNavigateToQrWizard
+                        )
+                    }
+                    item {
+                        QuickToolChip(
                             title = "מנהל מכשיר",
                             icon = androidx.compose.material.icons.Icons.Default.AdminPanelSettings,
                             onClick = onNavigateToDeviceAdmin
@@ -207,6 +223,13 @@ fun ChecklistScreen(
                             title = "תצוגה מקדימה",
                             icon = androidx.compose.material.icons.Icons.Default.Smartphone,
                             onClick = onNavigateToLivePreview
+                        )
+                    }
+                    item {
+                        QuickToolChip(
+                            title = "טיפים ומדריכים",
+                            icon = Icons.Default.Lightbulb,
+                            onClick = onNavigateToProTips
                         )
                     }
                     item {
@@ -890,6 +913,87 @@ fun CloudSyncCard(state: com.example.ui.ScanState, viewModel: ScanViewModel) {
 }
 
 @Composable
+fun DeviceAdminCard() {
+    val context = LocalContext.current
+    val dpm = remember { context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager }
+    val adminComponent = remember { ComponentName(context, MyDeviceAdminReceiver::class.java) }
+    var isAdminActive by remember { mutableStateOf(dpm.isAdminActive(adminComponent)) }
+
+    // Periodically check status
+    LaunchedEffect(Unit) {
+        while(true) {
+            isAdminActive = dpm.isAdminActive(adminComponent)
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isAdminActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (isAdminActive) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = "מנהל מכשיר",
+                    tint = if (isAdminActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "הרשאת מנהל מכשיר",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (isAdminActive) "הרשאת מנהל מכשיר פעילה ומאובטחת" else "נדרש עבור שכפול והעתקה מלאה בין מכשירים",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            
+            Button(
+                onClick = {
+                    if (!isAdminActive) {
+                        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+                            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "הרשאה זו נדרשת כדי לקרוא, לגבות ולהעתיק נתוני מערכת מלאים ואפליקציות בין מכשירים באופן מאובטח.")
+                        }
+                        context.startActivity(intent)
+                    } else {
+                        dpm.removeActiveAdmin(adminComponent)
+                        isAdminActive = false
+                    }
+                },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isAdminActive) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (isAdminActive) "בטל הרשאת מנהל מכשיר" else "הפעל מנהל מכשיר",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun GoogleDriveBackupCard(state: com.example.ui.ScanState, viewModel: ScanViewModel) {
     val syncCode = state.syncCode
     
@@ -970,6 +1074,9 @@ fun GoogleDriveBackupCard(state: com.example.ui.ScanState, viewModel: ScanViewMo
 @Composable
 fun CloudRestoreCard(state: com.example.ui.ScanState, viewModel: ScanViewModel) {
     val context = LocalContext.current
+    val dpm = remember { context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager }
+    val adminComponent = remember { ComponentName(context, MyDeviceAdminReceiver::class.java) }
+    val isAdminActive = dpm.isAdminActive(adminComponent)
     val syncCode = state.syncCode
     var showSuccessToast by remember { mutableStateOf(false) }
 
