@@ -44,6 +44,10 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = db.migrationDao()
     private val cloudSyncService = com.example.service.CloudSyncService(dao, application)
 
+    /** Exposed so screens (e.g. the migration orchestrator) can reuse the same
+     * Firestore connection/listener instead of opening a second, competing one. */
+    fun getCloudSyncService() = cloudSyncService
+
     init {
         _state.value = _state.value.copy(isCloudAvailable = cloudSyncService.isFirestoreAvailable())
         loadFromDatabase()
@@ -217,8 +221,8 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 dao.insertApps(appEntities)
 
                 val mediaEntities = listOf(
-                    MediaEntity("PHOTOS", scanReport.media.photos, 0L, false),
-                    MediaEntity("VIDEOS", scanReport.media.videos, 0L, false)
+                    MediaEntity("PHOTOS", scanReport.media.photos, scanReport.media.photosSize, false),
+                    MediaEntity("VIDEOS", scanReport.media.videos, scanReport.media.videosSize, false)
                 )
                 dao.insertMediaStatus(mediaEntities)
 
@@ -268,30 +272,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 _state.value.syncCode?.let { code ->
                     cloudSyncService.pushLocalStateToCloud(code, viewModelScope)
                 }
-            } catch (e: Exception) {
-                // Silently handle
-            }
-        }
-    }
-
-    fun addCustomChecklistItems(items: List<ChecklistItem>) {
-        viewModelScope.launch {
-            try {
-                val appEntities = items.map { item ->
-                    AppEntity(
-                        packageName = item.id,
-                        appName = item.title,
-                        versionName = "1.0",
-                        installTime = System.currentTimeMillis(),
-                        canBackup = true,
-                        category = item.category,
-                        completed = item.completed,
-                        size = item.size,
-                        usageFrequency = item.usageFrequency
-                    )
-                }
-                dao.insertApps(appEntities)
-                loadFromDatabase()
             } catch (e: Exception) {
                 // Silently handle
             }

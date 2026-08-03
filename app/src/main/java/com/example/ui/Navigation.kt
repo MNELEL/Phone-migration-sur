@@ -12,7 +12,7 @@ import com.example.ui.screens.*
 @Composable
 fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
     val navController = rememberNavController()
-    val orchestrator = remember { MigrationOrchestrator() }
+    val orchestrator = remember { MigrationOrchestrator(scanViewModel.getCloudSyncService()) }
 
     NavHost(navController = navController, startDestination = "welcome") {
         composable("welcome") {
@@ -34,16 +34,9 @@ fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
                 onNavigateToQrWizard = { navController.navigate("qr_wizard") },
                 onNavigateToReport = { navController.navigate("report") },
                 onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToDeviceAdmin = { navController.navigate("device_admin_cloning") },
-                onNavigateToLivePreview = { navController.navigate("live_preview") },
-                onNavigateToCamera = { navController.navigate("camera") },
                 onNavigateToAppList = { navController.navigate("app_list") },
-                onNavigateToProTips = { navController.navigate("pro_tips") }
-            )
-        }
-        composable("pro_tips") {
-            ProTipsScreen(
-                onBack = { navController.popBackStack() }
+                onNavigateToLivePreview = { navController.navigate("live_preview") },
+                onNavigateToCamera = { navController.navigate("camera") }
             )
         }
         composable("camera") {
@@ -71,6 +64,7 @@ fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
         }
         composable("qr_wizard") {
             QrWizardScreen(
+                viewModel = scanViewModel,
                 onBack = { navController.popBackStack() },
                 onPairingComplete = { navController.navigate("orchestrator") }
             )
@@ -84,6 +78,7 @@ fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
         composable("orchestrator") {
             OrchestratorScreen(
                 orchestrator = orchestrator,
+                viewModel = scanViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToQrWizard = { navController.navigate("qr_wizard") },
                 onNavigateToReport = { navController.navigate("report") }
@@ -92,15 +87,8 @@ fun MigrationNavigation(scanViewModel: ScanViewModel = viewModel()) {
         composable("settings") {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToDeviceAdmin = { navController.navigate("device_admin_cloning") },
-                onNavigateToLivePreview = { navController.navigate("live_preview") },
-                onNavigateToProTips = { navController.navigate("pro_tips") }
-            )
-        }
-        composable("device_admin_cloning") {
-            DeviceAdminCloningScreen(
-                onBack = { navController.popBackStack() },
-                onNavigateToReport = { navController.navigate("report") }
+                onNavigateToAppList = { navController.navigate("app_list") },
+                onNavigateToLivePreview = { navController.navigate("live_preview") }
             )
         }
         composable("live_preview") {
