@@ -1,7 +1,15 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.view.ViewGroup
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,43 +19,52 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DeviceUnknown
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.scanner.QrCodeAnalyzer
+import com.example.scanner.QrCodeGenerator
+import com.example.ui.ScanViewModel
+import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QrWizardScreen(
+    viewModel: ScanViewModel,
     onBack: () -> Unit,
     onPairingComplete: () -> Unit
 ) {
-    var currentStep by remember { mutableIntStateOf(1) } // 1: Role, 2: Display QR / Enter Code, 3: Connecting, 4: Success
-    var isSourceDevice by remember { mutableStateOf(true) } // True: Old device, False: New device
-    var generatedPairingCode by remember { mutableStateOf("QR-8942-SEC") }
+    val scanState by viewModel.state.collectAsState()
+    val context = LocalContext.current
+
+    var currentStep by remember { mutableIntStateOf(1) } // 1: Role, 2: Display QR / Scan, 3: Connecting, 4: Success
+    var isSourceDevice by remember { mutableStateOf(true) }
     var enteredCode by remember { mutableStateOf("") }
-    var isVerifying by remember { mutableStateOf(false) }
+    var scanError by remember { mutableStateOf<String?>(null) }
+
+    // The source device needs a real sync code to encode into the QR. Reuse
+    // one already in progress (e.g. set from ChecklistScreen), or generate a
+    // fresh one — this is the same code format used elsewhere in the app.
+    val sourceSyncCode = scanState.syncCode ?: remember { "MIG" + (100..999).random() }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("אשף חיבור מכשירים בלייב", fontWeight = FontWeight.Bold) },
+                title = { Text("אשף חיבור מכשירים", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "חזרה")
@@ -68,7 +85,6 @@ fun QrWizardScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Step Indicator Bar
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -76,7 +92,7 @@ fun QrWizardScreen(
                 ) {
                     WizardStepChip(step = 1, title = "תפקיד", activeStep = currentStep)
                     WizardStepChip(step = 2, title = "קוד QR", activeStep = currentStep)
-                    WizardStepChip(step = 3, title = "אימות", activeStep = currentStep)
+                    WizardStepChip(step = 3, title = "חיבור", activeStep = currentStep)
                     WizardStepChip(step = 4, title = "סיום", activeStep = currentStep)
                 }
 
@@ -93,22 +109,25 @@ fun QrWizardScreen(
                         )
                         2 -> Step2QrDisplayOrScan(
                             isSourceDevice = isSourceDevice,
-                            pairingCode = generatedPairingCode,
+                            pairingCode = sourceSyncCode,
                             enteredCode = enteredCode,
-                            onCodeChange = { enteredCode = it },
-                            onRefreshCode = {
-                                generatedPairingCode = "QR-" + (1000..9999).random() + "-SEC"
-                            }
+                            onCodeChange = { enteredCode = it; scanError = null },
+                            onCodeScanned = { scanned ->
+                                enteredCode = scanned
+                                scanError = null
+                            },
+                            scanError = scanError
                         )
                         3 -> Step3Verifying(
-                            isVerifying = isVerifying
+                            isSourceDevice = isSourceDevice,
+                            isConnected = scanState.isSyncing && scanState.isCloudAvailable,
+                            isCloudAvailable = scanState.isCloudAvailable
                         )
                         4 -> Step4Success()
                     }
                 }
             }
 
-            // Bottom Navigation Actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -124,43 +143,46 @@ fun QrWizardScreen(
                     Spacer(Modifier.width(12.dp))
                 }
 
+                val canProceedStep2 = if (isSourceDevice) true else enteredCode.isNotBlank()
+
                 Button(
                     onClick = {
-                        if (currentStep == 1) {
-                            currentStep = 2
-                        } else if (currentStep == 2) {
-                            currentStep = 3
-                            isVerifying = true
-                        } else if (currentStep == 3) {
-                            currentStep = 4
-                        } else {
-                            onPairingComplete()
+                        when (currentStep) {
+                            1 -> currentStep = 2
+                            2 -> {
+                                val code = if (isSourceDevice) sourceSyncCode else enteredCode.trim().uppercase()
+                                if (code.isBlank()) {
+                                    scanError = "יש לסרוק או להזין קוד סנכרון"
+                                } else if (!scanState.isCloudAvailable) {
+                                    scanError = "שירות הענן אינו זמין כרגע"
+                                } else {
+                                    viewModel.startCloudSync(code)
+                                    currentStep = 3
+                                }
+                            }
+                            3 -> if (scanState.isSyncing) currentStep = 4
+                            else -> onPairingComplete()
                         }
                     },
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f).height(50.dp)
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    enabled = when (currentStep) {
+                        2 -> canProceedStep2
+                        3 -> scanState.isSyncing
+                        else -> true
+                    }
                 ) {
                     Text(
                         text = when (currentStep) {
                             1 -> "המשך לשלב 2"
-                            2 -> if (isSourceDevice) "פתח סורק / חבר" else "אמת קוד"
-                            3 -> "אמת חיבור"
-                            else -> "התחל מעבר נתונים"
+                            2 -> if (isSourceDevice) "המשך" else "אמת קוד"
+                            3 -> "המשך"
+                            else -> "סיים"
                         },
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-        }
-    }
-
-    // Auto simulate verification on step 3
-    LaunchedEffect(currentStep) {
-        if (currentStep == 3) {
-            isVerifying = true
-            delay(2000)
-            isVerifying = false
-            currentStep = 4
         }
     }
 }
@@ -261,7 +283,7 @@ fun Step1RoleSelection(
                 Spacer(Modifier.width(16.dp))
                 Column {
                     Text("זהו המכשיר הישן (שולח)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("יוצר קוד QR מוצפן ומשדר את גיבוי המכשיר", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("יוצר קוד QR עם קוד הסנכרון של המכשיר", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -295,7 +317,7 @@ fun Step1RoleSelection(
                 Spacer(Modifier.width(16.dp))
                 Column {
                     Text("זהו המכשיר החדש (מקבל)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("סורק את קוד ה-QR ומוריד את נתוני המעבר", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("סורק את קוד ה-QR ומתחבר לאותו סנכרון", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -308,17 +330,18 @@ fun Step2QrDisplayOrScan(
     pairingCode: String,
     enteredCode: String,
     onCodeChange: (String) -> Unit,
-    onRefreshCode: () -> Unit
+    onCodeScanned: (String) -> Unit,
+    scanError: String?
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = if (isSourceDevice) "שלב 2: סרוק קוד QR ממכשיר זה" else "שלב 2: הכנס או סרוק קוד זיווג",
+            text = if (isSourceDevice) "שלב 2: הצג את קוד ה-QR" else "שלב 2: סרוק את קוד הזיווג",
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = if (isSourceDevice) "פתח את המצלמה במכשיר החדש וסרוק את הברקוד המאובטח שלהלן:" else "כוון את מצלמת המכשיר או הקלד את קוד הזיווג המופיע במכשיר הישן:",
+            text = if (isSourceDevice) "פתח את המצלמה במכשיר החדש וסרוק את קוד ה-QR שלהלן:" else "כוון את מצלמת המכשיר לקוד שמוצג במכשיר הישן, או הקלד את הקוד ידנית:",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -327,7 +350,7 @@ fun Step2QrDisplayOrScan(
         Spacer(Modifier.height(20.dp))
 
         if (isSourceDevice) {
-            // Render custom QR code canvas
+            val qrBitmap = remember(pairingCode) { QrCodeGenerator.generate(pairingCode, 512) }
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(24.dp),
@@ -338,90 +361,174 @@ fun Step2QrDisplayOrScan(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(24.dp)
                 ) {
-                    CustomQrCodeCanvas(code = pairingCode, sizeDp = 200)
-
+                    Image(
+                        bitmap = qrBitmap.asImageBitmap(),
+                        contentDescription = "קוד QR לסנכרון",
+                        modifier = Modifier.size(200.dp)
+                    )
                     Spacer(Modifier.height(16.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = pairingCode,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = Color.Black
-                        )
-                        IconButton(onClick = onRefreshCode) {
-                            Icon(Icons.Default.Refresh, contentDescription = "רענן", tint = Color.Black)
-                        }
-                    }
+                    Text(
+                        text = pairingCode,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.Black
+                    )
                 }
             }
         } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCodeScanner,
-                        contentDescription = "סורק QR",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = "מצלמה סורקת קוד QR...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = "או הקלד קוד זיווג ידני:",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = enteredCode,
-                        onValueChange = onCodeChange,
-                        placeholder = { Text("לדוגמה: QR-8942-SEC") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+            QrScannerView(onCodeScanned = onCodeScanned)
+
+            Spacer(Modifier.height(16.dp))
+
+            if (scanError != null) {
+                Text(
+                    text = scanError,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(8.dp))
             }
+
+            Text(
+                text = "או הקלד קוד זיווג ידני:",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = enteredCode,
+                onValueChange = onCodeChange,
+                placeholder = { Text("לדוגמה: MIG482") },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
+/**
+ * Real camera preview with live QR decoding via CameraX + ML Kit. Falls back
+ * to a message (not a fake "scanning..." animation) if camera permission
+ * hasn't been granted — permission is requested up front in PermissionScreen.
+ */
 @Composable
-fun Step3Verifying(isVerifying: Boolean) {
+fun QrScannerView(onCodeScanned: (String) -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val hasCameraPermission = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.CAMERA
+    ) == PackageManager.PERMISSION_GRANTED
+
+    if (!hasCameraPermission) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "נדרשת הרשאת מצלמה כדי לסרוק. אפשר להעניק אותה במסך ההרשאות, או להקליד את הקוד ידנית למטה.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
+    }
+
+    Box(
+        modifier = Modifier
+            .size(260.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp))
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                val previewView = PreviewView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                }
+
+                val analysisExecutor = Executors.newSingleThreadExecutor()
+                val analyzer = QrCodeAnalyzer { code -> onCodeScanned(code) }
+
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                cameraProviderFuture.addListener({
+                    try {
+                        val cameraProvider = cameraProviderFuture.get()
+                        val preview = Preview.Builder().build().also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
+                        val analysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
+                            .also { it.setAnalyzer(analysisExecutor, analyzer) }
+
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            preview,
+                            analysis
+                        )
+                    } catch (e: Exception) {
+                        // Camera unavailable (e.g. emulator without one) — the
+                        // manual code entry field below still works.
+                    }
+                }, ContextCompat.getMainExecutor(ctx))
+
+                previewView
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun Step3Verifying(isSourceDevice: Boolean, isConnected: Boolean, isCloudAvailable: Boolean) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(vertical = 32.dp)
     ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(64.dp),
-            color = MaterialTheme.colorScheme.primary,
-            strokeWidth = 6.dp
-        )
-        Spacer(Modifier.height(24.dp))
-        Text(
-            text = "מבצע אימות לחישת ידיים (Handshake) מוצפנת...",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "מאמת מפתחות הצפנה בין המכשיר הישן לחדש באמצעות ערוץ P2P מאובטח.",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (isConnected) {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(64.dp)
+            )
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = "מחובר לסנכרון בזמן אמת",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "שני המכשירים מסונכרנים כעת דרך אותו קוד. שינויים ברשימת המעבר יתעדכנו בשני הצדדים.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            CircularProgressIndicator(
+                modifier = Modifier.size(64.dp),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 6.dp
+            )
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = if (!isCloudAvailable) "שירות הענן אינו זמין" else "מתחבר לסנכרון...",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -439,61 +546,17 @@ fun Step4Success() {
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "חיבור וזיווג המכשירים בוצע בהצלחה!",
+            text = "המכשירים מסונכרנים!",
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "המכשירים מחוברים כעת בצימוד מאובטח. אתה מוכן להתחיל בהעברת הנתונים המוצפנת.",
+            text = "שני המכשירים מחוברים כעת לאותו קוד סנכרון. התקדמות ברשימת המעבר תתעדכן בזמן אמת בשניהם.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-@Composable
-fun CustomQrCodeCanvas(code: String, sizeDp: Int) {
-    val darkColor = Color.Black
-    val lightColor = Color.White
-
-    Canvas(
-        modifier = Modifier
-            .size(sizeDp.dp)
-            .background(lightColor, RoundedCornerShape(12.dp))
-            .border(2.dp, Color.LightGray, RoundedCornerShape(12.dp))
-    ) {
-        val width = size.width
-        val height = size.height
-        val gridSize = 10
-        val cellSize = width / gridSize
-
-        // Draw position markers at corners
-        drawRect(darkColor, topLeft = Offset(0f, 0f), size = Size(cellSize * 3, cellSize * 3))
-        drawRect(lightColor, topLeft = Offset(cellSize, cellSize), size = Size(cellSize, cellSize))
-
-        drawRect(darkColor, topLeft = Offset(cellSize * 7, 0f), size = Size(cellSize * 3, cellSize * 3))
-        drawRect(lightColor, topLeft = Offset(cellSize * 8, cellSize), size = Size(cellSize, cellSize))
-
-        drawRect(darkColor, topLeft = Offset(0f, cellSize * 7), size = Size(cellSize * 3, cellSize * 3))
-        drawRect(lightColor, topLeft = Offset(cellSize, cellSize * 8), size = Size(cellSize, cellSize))
-
-        // Draw pseudo random data blocks based on code hash
-        val hash = code.hashCode()
-        for (i in 0 until gridSize) {
-            for (j in 0 until gridSize) {
-                // Skip corner markers
-                if ((i < 3 && j < 3) || (i >= 7 && j < 3) || (i < 3 && j >= 7)) continue
-                if ((hash xor (i * 31 + j * 17)) % 2 == 0) {
-                    drawRect(
-                        color = darkColor,
-                        topLeft = Offset(i * cellSize, j * cellSize),
-                        size = Size(cellSize * 0.9f, cellSize * 0.9f)
-                    )
-                }
-            }
-        }
     }
 }

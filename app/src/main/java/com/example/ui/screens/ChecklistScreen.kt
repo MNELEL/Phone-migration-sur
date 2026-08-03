@@ -27,12 +27,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import com.example.service.MyDeviceAdminReceiver
-import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
@@ -45,12 +39,6 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FileDownload
-import com.example.service.ChecklistExporter
 import com.example.domain.ChecklistItem
 import com.example.domain.CoverageSource
 import com.example.ui.ScanViewModel
@@ -67,19 +55,15 @@ fun ChecklistScreen(
     onNavigateToQrWizard: () -> Unit = {},
     onNavigateToReport: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToDeviceAdmin: () -> Unit = {},
-    onNavigateToLivePreview: () -> Unit = {},
-    onNavigateToCamera: () -> Unit = {},
     onNavigateToAppList: () -> Unit = {},
-    onNavigateToProTips: () -> Unit = {}
+    onNavigateToLivePreview: () -> Unit = {},
+    onNavigateToCamera: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryFilter by remember { mutableStateOf("ALL") } // "ALL", "ESSENTIAL", "PRODUCTIVITY", "GAMES"
     var sortOption by remember { mutableStateOf("DEFAULT") } // "DEFAULT", "SIZE", "USAGE"
     var showDataSafetyDialog by remember { mutableStateOf(false) }
-    var showExportDialog by remember { mutableStateOf(false) }
-    var showPlayStoreDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -213,37 +197,9 @@ fun ChecklistScreen(
                     }
                     item {
                         QuickToolChip(
-                            title = "מנהל מכשיר",
-                            icon = androidx.compose.material.icons.Icons.Default.AdminPanelSettings,
-                            onClick = onNavigateToDeviceAdmin
-                        )
-                    }
-                    item {
-                        QuickToolChip(
                             title = "תצוגה מקדימה",
                             icon = androidx.compose.material.icons.Icons.Default.Smartphone,
                             onClick = onNavigateToLivePreview
-                        )
-                    }
-                    item {
-                        QuickToolChip(
-                            title = "טיפים ומדריכים",
-                            icon = Icons.Default.Lightbulb,
-                            onClick = onNavigateToProTips
-                        )
-                    }
-                    item {
-                        QuickToolChip(
-                            title = "פרסום ב-Google Play",
-                            icon = Icons.Default.Storefront,
-                            onClick = { showPlayStoreDialog = true }
-                        )
-                    }
-                    item {
-                        QuickToolChip(
-                            title = "ייצוא PDF / TXT",
-                            icon = Icons.Default.PictureAsPdf,
-                            onClick = { showExportDialog = true }
                         )
                     }
                     item {
@@ -265,28 +221,18 @@ fun ChecklistScreen(
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column {
                                 Text("התקדמות העברה", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 val completed = state.checklist.count { it.completed }
                                 val total = state.checklist.size
                                 val percent = if (total == 0) 0 else (completed * 100) / total
                                 Text("${percent}%", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
-                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Button(
-                                    onClick = { showExportDialog = true },
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("ייצוא PDF / TXT", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                                OutlinedButton(
-                                    onClick = { viewModel.shareChecklist(context) },
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("JSON", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                }
+                            Button(
+                                onClick = { viewModel.shareChecklist(context) },
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            ) {
+                                Text("ייצא רשימה (JSON)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                         Spacer(Modifier.height(16.dp))
@@ -359,15 +305,6 @@ fun ChecklistScreen(
                                 textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = { showExportDialog = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onTertiaryContainer, contentColor = MaterialTheme.colorScheme.tertiaryContainer)
-                            ) {
-                                Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("ייצא דוח מעבר PDF / TXT לתיעוד", fontWeight = FontWeight.Bold)
-                            }
                         }
                     }
                 }
@@ -375,10 +312,6 @@ fun ChecklistScreen(
 
             item {
                 CloudSyncCard(state = state, viewModel = viewModel)
-            }
-
-            item {
-                DeviceAdminCard()
             }
 
             item {
@@ -529,158 +462,7 @@ fun ChecklistScreen(
             showDialog = showDataSafetyDialog,
             onDismiss = { showDataSafetyDialog = false }
         )
-
-        ExportChecklistDialog(
-            showDialog = showExportDialog,
-            onDismiss = { showExportDialog = false },
-            checklistItems = state.checklist,
-            onExportSuccess = { viewModel.showSnackbarMessage(it) },
-            onExportError = { viewModel.showSnackbarMessage(it) }
-        )
-
-        PlayStorePublishingDialog(
-            showDialog = showPlayStoreDialog,
-            onDismiss = { showPlayStoreDialog = false },
-            viewModel = viewModel
-        )
     }
-}
-
-@Composable
-fun ExportChecklistDialog(
-    showDialog: Boolean,
-    onDismiss: () -> Unit,
-    checklistItems: List<ChecklistItem>,
-    onExportSuccess: (String) -> Unit,
-    onExportError: (String) -> Unit
-) {
-    if (!showDialog) return
-
-    val context = LocalContext.current
-    var selectedFormat by remember { mutableStateOf(ChecklistExporter.ExportFormat.PDF) }
-    var onlyCompleted by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.FileDownload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text("ייצוא רשימת מעבר", fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(
-                    "ייצא את רשימת משימות ההעברה והסטטוס שלהן כקובץ PDF מעוצב או כקובץ טקסט מובנה למעקב ותיעוד אישי.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    "פורמט הקובץ:",
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedFormat == ChecklistExporter.ExportFormat.PDF,
-                        onClick = { selectedFormat = ChecklistExporter.ExportFormat.PDF },
-                        label = { Text("מסמך PDF") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.PictureAsPdf,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterChip(
-                        selected = selectedFormat == ChecklistExporter.ExportFormat.TEXT,
-                        onClick = { selectedFormat = ChecklistExporter.ExportFormat.TEXT },
-                        label = { Text("קובץ טקסט (.txt)") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Description,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Checkbox(
-                        checked = onlyCompleted,
-                        onCheckedChange = { onlyCompleted = it }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("ייצא משימות שהושלמו בלבד", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        },
-        confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        val result = ChecklistExporter.exportChecklist(
-                            context = context,
-                            items = checklistItems,
-                            format = selectedFormat,
-                            onlyCompleted = onlyCompleted
-                        )
-                        if (result != null) {
-                            ChecklistExporter.openExportedFile(context, result)
-                            onExportSuccess("הקובץ נוצר בהצלחה ונפתח!")
-                            onDismiss()
-                        } else {
-                            onExportError("שגיאה ביצירת הקובץ")
-                        }
-                    }
-                ) {
-                    Text("פתח קובץ")
-                }
-                Button(
-                    onClick = {
-                        val result = ChecklistExporter.exportChecklist(
-                            context = context,
-                            items = checklistItems,
-                            format = selectedFormat,
-                            onlyCompleted = onlyCompleted
-                        )
-                        if (result != null) {
-                            ChecklistExporter.shareExportedFile(context, result)
-                            onExportSuccess("הקובץ מוכן לשיתוף!")
-                            onDismiss()
-                        } else {
-                            onExportError("שגיאה ביצירת הקובץ")
-                        }
-                    }
-                ) {
-                    Text("שתף קובץ")
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("ביטול")
-            }
-        }
-    )
 }
 
 @Composable
@@ -906,87 +688,6 @@ fun CloudSyncCard(state: com.example.ui.ScanState, viewModel: ScanViewModel) {
                     text = "⚠️ חיבור ל-Firestore נעקף. מצב ארגז חול מקומי פעיל. חבר קובץ google-services.json אמיתי כדי לסנכרן בין מכשירים פיזיים שונים.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun DeviceAdminCard() {
-    val context = LocalContext.current
-    val dpm = remember { context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager }
-    val adminComponent = remember { ComponentName(context, MyDeviceAdminReceiver::class.java) }
-    var isAdminActive by remember { mutableStateOf(dpm.isAdminActive(adminComponent)) }
-
-    // Periodically check status
-    LaunchedEffect(Unit) {
-        while(true) {
-            isAdminActive = dpm.isAdminActive(adminComponent)
-            kotlinx.coroutines.delay(1000)
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isAdminActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (isAdminActive) Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = "מנהל מכשיר",
-                    tint = if (isAdminActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "הרשאת מנהל מכשיר",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (isAdminActive) "הרשאת מנהל מכשיר פעילה ומאובטחת" else "נדרש עבור שכפול והעתקה מלאה בין מכשירים",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            
-            Button(
-                onClick = {
-                    if (!isAdminActive) {
-                        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-                            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
-                            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "הרשאה זו נדרשת כדי לקרוא, לגבות ולהעתיק נתוני מערכת מלאים ואפליקציות בין מכשירים באופן מאובטח.")
-                        }
-                        context.startActivity(intent)
-                    } else {
-                        dpm.removeActiveAdmin(adminComponent)
-                        isAdminActive = false
-                    }
-                },
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isAdminActive) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = if (isAdminActive) "בטל הרשאת מנהל מכשיר" else "הפעל מנהל מכשיר",
-                    fontWeight = FontWeight.Bold
                 )
             }
         }

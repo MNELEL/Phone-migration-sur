@@ -20,25 +20,31 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.service.MigrationOrchestrator
 import com.example.service.OrchestratorStage
+import com.example.ui.ScanViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrchestratorScreen(
     orchestrator: MigrationOrchestrator,
+    viewModel: ScanViewModel,
     onBack: () -> Unit,
     onNavigateToQrWizard: () -> Unit,
     onNavigateToReport: () -> Unit
 ) {
     val state by orchestrator.state.collectAsState()
+    val scanState by viewModel.state.collectAsState()
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    // The sync code is the same pairing code used elsewhere (ChecklistScreen's
+    // cloud sync card) — generate one locally if the user hasn't set one yet,
+    // so both devices have a real, typeable code to match on.
+    var localSyncCode by remember { mutableStateOf<String?>(null) }
+    val effectiveSyncCode = scanState.syncCode ?: localSyncCode
 
     Scaffold(
         topBar = {
@@ -83,7 +89,7 @@ fun OrchestratorScreen(
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                                 Text(
-                                    text = "זרימה מלאה: אריזה -> העלאה לענן -> התקנת אפליקציה במכשיר היעד -> שחזור",
+                                    text = "סורק את המכשיר -> מסנכרן checklist בין מכשירים -> מתקינים אפליקציות ידנית משם",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -139,8 +145,8 @@ fun OrchestratorScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OrchestratorStepRow(
                         stepNumber = 1,
-                        title = "אריזת הנתונים והצפנה",
-                        subtitle = if (state.totalAppsPackaged > 0) "אורז ${state.totalAppsPackaged} אפליקציות, ${state.totalContactsPackaged} אנשי קשר ו-${state.totalMediaMBPackaged} MB מדיה" else "איסוף והצפנת AES-256 של הנתונים",
+                        title = "איסוף נתוני המכשיר",
+                        subtitle = if (state.totalAppsPackaged > 0) "נמצאו ${state.totalAppsPackaged} אפליקציות, ${state.totalContactsPackaged} אנשי קשר ו-${state.totalMediaMBPackaged} MB מדיה" else "סורק אפליקציות, אנשי קשר ומדיה במכשיר",
                         isCompleted = state.stage.ordinal > OrchestratorStage.PACKAGING_DATA.ordinal,
                         isActive = state.stage == OrchestratorStage.PACKAGING_DATA,
                         icon = Icons.Default.Lock
@@ -148,8 +154,8 @@ fun OrchestratorScreen(
 
                     OrchestratorStepRow(
                         stepNumber = 2,
-                        title = "העלאת גיבוי מוצפן לענן",
-                        subtitle = "יעד אחסון: ${state.destinationProvider}",
+                        title = "העלאת מצב הסנכרון לענן",
+                        subtitle = "יעד: ${state.destinationProvider} (Firestore) — checklist ומטא-דאטה בלבד",
                         isCompleted = state.stage.ordinal > OrchestratorStage.UPLOADING_CLOUD.ordinal,
                         isActive = state.stage == OrchestratorStage.UPLOADING_CLOUD,
                         icon = Icons.Default.CloudUpload
@@ -158,7 +164,7 @@ fun OrchestratorScreen(
                     OrchestratorStepRow(
                         stepNumber = 3,
                         title = "התקנת האפליקציה במכשיר היעד",
-                        subtitle = "אנא התקן את האפליקציה במכשיר החדש והשתמש בקוד: ${state.pairingCode}",
+                        subtitle = if (state.pairingCode != null) "התקן את האפליקציה במכשיר החדש והזן את קוד הסנכרון: ${state.pairingCode}" else "ממתין ליצירת קוד סנכרון",
                         isCompleted = state.stage.ordinal > OrchestratorStage.PROMPTING_TARGET_INSTALL.ordinal,
                         isActive = state.stage == OrchestratorStage.PROMPTING_TARGET_INSTALL,
                         icon = Icons.Default.PhoneAndroid
@@ -166,8 +172,8 @@ fun OrchestratorScreen(
 
                     OrchestratorStepRow(
                         stepNumber = 4,
-                        title = "שחזור והגדרת המכשיר החדש",
-                        subtitle = if (state.targetDeviceConnected) "הורדה ושחזור בתהליך..." else "ממתין לחיבור ממכשיר היעד",
+                        title = "אישור סנכרון מהמכשיר החדש",
+                        subtitle = if (state.targetDeviceConnected) "המכשיר החדש אישר סנכרון..." else "ממתין לכך שהמכשיר החדש יזין את אותו קוד סנכרון",
                         isCompleted = state.stage == OrchestratorStage.COMPLETED,
                         isActive = state.stage == OrchestratorStage.RECOVERING_DATA,
                         icon = Icons.Default.Download
@@ -180,13 +186,24 @@ fun OrchestratorScreen(
                 when (state.stage) {
                     OrchestratorStage.IDLE -> {
                         Button(
-                            onClick = { orchestrator.startTransferFlow(scope) },
+                            onClick = {
+                                val code = effectiveSyncCode ?: ("MIG" + (100..999).random()).also { localSyncCode = it }
+                                orchestrator.startTransferFlow(
+                                    scope = scope,
+                                    report = scanState.report,
+                                    syncCode = code
+                                )
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(54.dp),
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            enabled = scanState.report != null
                         ) {
-                            Text("התחל תהליך מעבר מתוזמר עכשיו", fontWeight = FontWeight.Bold)
+                            Text(
+                                if (scanState.report != null) "התחל תהליך מעבר" else "יש לסרוק את המכשיר תחילה",
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
 
@@ -204,11 +221,14 @@ fun OrchestratorScreen(
                                 Text("פתח אשף קוד QR לצימוד המכשיר החדש", fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.height(12.dp))
-                            OutlinedButton(
-                                onClick = { orchestrator.simulateTargetConnection(scope) },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("סימולציית חיבור ממכשיר היעד")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "ממתין שהמכשיר החדש יזין את הקוד ${state.pairingCode ?: ""}...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
