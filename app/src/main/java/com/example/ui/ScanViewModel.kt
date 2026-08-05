@@ -308,11 +308,20 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         cloudSyncService.pushLocalStateToCloud(code, viewModelScope)
+        com.example.worker.FirestoreSyncWorker.scheduleOneTimeSync(getApplication(), code)
+        com.example.worker.FirestoreSyncWorker.schedulePeriodicSync(getApplication(), code)
     }
 
     fun stopCloudSync() {
         cloudSyncService.stopSync()
+        com.example.worker.FirestoreSyncWorker.cancelPeriodicSync(getApplication())
         _state.value = _state.value.copy(syncCode = null, isSyncing = false)
+    }
+
+    fun triggerWorkManagerSync(code: String? = null) {
+        val syncCodeToUse = code ?: _state.value.syncCode
+        com.example.worker.FirestoreSyncWorker.scheduleOneTimeSync(getApplication(), syncCodeToUse)
+        _state.value = _state.value.copy(snackbarMessage = "סנכרון ברקע הופעל באמצעות WorkManager")
     }
 
     fun performCloudBackup(code: String) {
@@ -344,15 +353,17 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 backupMessage = "מקטלג ומגבה רשימת אפליקציות מותקנות..."
             )
             
-            // Step 4: Finalize and sync
+            // Step 4: Finalize and sync via CloudSyncService and WorkManager
             kotlinx.coroutines.delay(800)
             cloudSyncService.pushLocalStateToCloud(code, viewModelScope)
+            com.example.worker.FirestoreSyncWorker.scheduleOneTimeSync(getApplication(), code)
+            com.example.worker.FirestoreSyncWorker.schedulePeriodicSync(getApplication(), code)
             
             _state.value = _state.value.copy(
                 isBackingUp = false,
                 backupProgress = 1f,
                 backupMessage = "הגיבוי לענן הושלם בהצלחה!",
-                snackbarMessage = "נתוני המעבר סונכרנו בהצלחה לענן Firebase!"
+                snackbarMessage = "נתוני המעבר ואפליקציות סונכרנו בהצלחה ל-Firestore באמצעות WorkManager!"
             )
             
             loadFromDatabase()

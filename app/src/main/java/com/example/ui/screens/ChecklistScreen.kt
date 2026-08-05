@@ -888,12 +888,25 @@ fun CloudSyncCard(state: com.example.ui.ScanState, viewModel: ScanViewModel) {
                         )
                     }
                     
-                    Button(
-                        onClick = { viewModel.stopCloudSync() },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                    ) {
-                        Text("נתק חיבור", fontWeight = FontWeight.Bold)
+                    Row {
+                        OutlinedButton(
+                            onClick = { viewModel.triggerWorkManagerSync(state.syncCode) },
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("סנכרון WorkManager", fontSize = 12.sp)
+                        }
+                        
+                        Spacer(Modifier.width(8.dp))
+                        
+                        Button(
+                            onClick = { viewModel.stopCloudSync() },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        ) {
+                            Text("נתק חיבור", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

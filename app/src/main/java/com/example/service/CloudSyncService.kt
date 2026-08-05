@@ -143,6 +143,11 @@ class CloudSyncService(
                 )
 
                 fs.collection("checklists").document(syncCode).set(payload)
+                    .addOnSuccessListener {
+                        context?.let { ctx ->
+                            com.example.worker.FirestoreSyncWorker.scheduleOneTimeSync(ctx, syncCode)
+                        }
+                    }
                     .addOnFailureListener { exception ->
                         Log.e("CloudSyncService", "Failed to upload: ${exception.message}")
                     }
