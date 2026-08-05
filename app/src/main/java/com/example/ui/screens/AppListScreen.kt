@@ -1,53 +1,39 @@
 package com.example.ui.screens
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import com.example.service.AppCategorizationService
+import com.example.service.AppFolderCategory
+import com.example.service.AppFolderGroup
 import com.example.service.AppQueryService
 import com.example.service.UserAppInfo
 import com.example.ui.components.ScanningLoadingIndicator
-
-/**
- * Opens the app's Play Store listing so the user can install it themselves
- * on the new device. There is no API on stock Android that lets a normal
- * app silently install other apps in the background — the only legitimate
- * path is handing the user a real install link and letting them tap
- * "Install" like they would for any app.
- */
-private fun openPlayStoreListing(context: Context, packageName: String) {
-    val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
-    try {
-        context.startActivity(marketIntent)
-    } catch (e: ActivityNotFoundException) {
-        val webIntent = Intent(
-            Intent.ACTION_VIEW,
-            Uri.parse("https://play.google.com/store/apps/details?id=$packageName")
-        )
-        context.startActivity(webIntent)
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,12 +42,13 @@ fun AppListScreen(
 ) {
     val context = LocalContext.current
     val appQueryService = remember { AppQueryService(context) }
+    val categorizationService = remember { AppCategorizationService() }
 
     var isLoading by remember { mutableStateOf(true) }
     var appsList by remember { mutableStateOf<List<UserAppInfo>>(emptyList()) }
-    // Packages the user has manually marked as "already installed on the new
-    // device". This is just a local checklist — nothing is installed for them.
-    var installedOnNewDevice by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedCategoryFilter by remember { mutableStateOf<AppFolderCategory?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var collapsedFolderIds by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -69,10 +56,36 @@ fun AppListScreen(
         isLoading = false
     }
 
+    val folderGroups = remember(appsList, searchQuery, selectedCategoryFilter) {
+        val filteredApps = appsList.filter { app ->
+            val matchesSearch = searchQuery.isBlank() ||
+                    app.appName.contains(searchQuery, ignoreCase = true) ||
+                    app.packageName.contains(searchQuery, ignoreCase = true)
+            val matchesCategory = selectedCategoryFilter == null || app.category == selectedCategoryFilter
+            matchesSearch && matchesCategory
+        }
+
+        categorizationService.groupAppsByFolder(
+            apps = filteredApps,
+            getPackageName = { it.packageName },
+            getAppName = { it.appName },
+            getCategoryOverride = { it.category.id }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("אפליקציות מותקנות (${appsList.size})", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text("אפליקציות לפי תיקיות נושא", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = "${appsList.size} אפליקציות מותקנות ב-${folderGroups.size} תיקיות",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "חזרה")
@@ -98,8 +111,8 @@ fun AppListScreen(
         ) {
             if (isLoading) {
                 ScanningLoadingIndicator(
-                    statusText = "טוען אפליקציות מותקנות...",
-                    subStatusText = "סורק את PackageManager ומסנן אפליקציות מערכת"
+                    statusText = "מסווג אפליקציות לתיקיות נושא...",
+                    subStatusText = "מנתח מאפייני חבילה וקטגוריות ליצירת תוכנית העברה נוחה"
                 )
             } else if (appsList.isEmpty()) {
                 Column(
@@ -114,39 +127,101 @@ fun AppListScreen(
                     Text("לא נמצאו אפליקציות משתמש מותקנות", style = MaterialTheme.typography.titleMedium)
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    item {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "רשימה זו מכילה אפליקציות שהותקנו ע\"י המשתמש בלבד (ללא אפליקציות מערכת). לחץ \"פתח בחנות\" על כל אפליקציה במכשיר החדש כדי להתקין אותה משם — Android אינו מאפשר לאפליקציה זו להתקין אפליקציות אחרות עבורך.",
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(12.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Search & Filter Header Section
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("חפש אפליקציה או חבילה...") },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(Icons.Default.Clear, contentDescription = "ניקוי")
+                                        }
+                                    }
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
                             )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            // Category Filter Chips
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                item {
+                                    FilterChip(
+                                        selected = selectedCategoryFilter == null,
+                                        onClick = { selectedCategoryFilter = null },
+                                        label = { Text("הכל (${appsList.size})", fontWeight = FontWeight.Bold) },
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                }
+
+                                items(AppFolderCategory.values()) { category ->
+                                    val countInFolder = appsList.count { it.category == category }
+                                    if (countInFolder > 0) {
+                                        val isSelected = selectedCategoryFilter == category
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                selectedCategoryFilter = if (isSelected) null else category
+                                            },
+                                            label = {
+                                                Text("${category.titleHebrew} ($countInFolder)")
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = category.icon,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = Color(category.accentColorHex)
+                                                )
+                                            },
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    items(appsList, key = { it.packageName }) { appInfo ->
-                        UserAppItemCard(
-                            app = appInfo,
-                            isMarkedInstalled = appInfo.packageName in installedOnNewDevice,
-                            onOpenStore = { openPlayStoreListing(context, appInfo.packageName) },
-                            onToggleInstalled = {
-                                installedOnNewDevice = if (appInfo.packageName in installedOnNewDevice) {
-                                    installedOnNewDevice - appInfo.packageName
-                                } else {
-                                    installedOnNewDevice + appInfo.packageName
+                    // Categorized Folders List
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(bottom = 24.dp)
+                    ) {
+                        items(folderGroups, key = { it.category.id }) { group ->
+                            val isCollapsed = collapsedFolderIds.contains(group.category.id)
+
+                            AppFolderCard(
+                                group = group,
+                                isCollapsed = isCollapsed,
+                                onToggleCollapse = {
+                                    collapsedFolderIds = if (isCollapsed) {
+                                        collapsedFolderIds - group.category.id
+                                    } else {
+                                        collapsedFolderIds + group.category.id
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -155,116 +230,173 @@ fun AppListScreen(
 }
 
 @Composable
-fun UserAppItemCard(
-    app: UserAppInfo,
-    isMarkedInstalled: Boolean,
-    onOpenStore: () -> Unit,
-    onToggleInstalled: () -> Unit
+fun AppFolderCard(
+    group: AppFolderGroup<UserAppInfo>,
+    isCollapsed: Boolean,
+    onToggleCollapse: () -> Unit
 ) {
+    val category = group.category
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isMarkedInstalled)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-            else
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-        )
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(category.accentColorHex).copy(alpha = 0.3f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Folder Header Bar
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleCollapse() }
+                    .background(Color(category.accentColorHex).copy(alpha = 0.08f))
+                    .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (app.icon != null) {
-                    val bitmap = remember(app.icon) { app.icon.toBitmap(56, 56).asImageBitmap() }
-                    Image(
-                        bitmap = bitmap,
-                        contentDescription = app.appName,
-                        modifier = Modifier.size(44.dp)
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.Android,
-                        contentDescription = null,
-                        modifier = Modifier.size(44.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(category.accentColorHex).copy(alpha = 0.15f),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = category.icon,
+                            contentDescription = null,
+                            tint = Color(category.accentColorHex),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
 
                 Spacer(Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = app.appName,
+                        text = category.titleHebrew,
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = app.packageName,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = category.descriptionHebrew,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (app.versionName.isNotEmpty()) {
-                        Text(
-                            text = "גרסה: ${app.versionName}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 }
 
-                if (app.canBackup) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "ניתן לגיבוי",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
+                Spacer(Modifier.width(8.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(category.accentColorHex),
+                    modifier = Modifier.padding(end = 4.dp)
+                ) {
+                    Text(
+                        text = "${group.count}",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                Icon(
+                    imageVector = if (isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
+                    contentDescription = if (isCollapsed) "הרחב" else "כווץ",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Expanded Folder Content
+            AnimatedVisibility(
+                visible = !isCollapsed,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    group.items.forEach { appInfo ->
+                        UserAppFolderItemRow(app = appInfo, folderCategory = category)
                     }
                 }
             }
+        }
+    }
+}
 
-            Spacer(Modifier.height(10.dp))
+@Composable
+fun UserAppFolderItemRow(app: UserAppInfo, folderCategory: AppFolderCategory) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (app.icon != null) {
+                val bitmap = remember(app.icon) { app.icon.toBitmap(48, 48).asImageBitmap() }
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = app.appName,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            } else {
+                Icon(
+                    Icons.Default.Android,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = Color(folderCategory.accentColorHex)
+                )
+            }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onOpenStore,
-                    modifier = Modifier.weight(1f)
+            Spacer(Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = app.appName,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = app.packageName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (app.canBackup) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("פתח בחנות", style = MaterialTheme.typography.labelMedium)
-                }
-
-                Button(
-                    onClick = onToggleInstalled,
-                    modifier = Modifier.weight(1f),
-                    colors = if (isMarkedInstalled) {
-                        ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    } else {
-                        ButtonDefaults.outlinedButtonColors()
-                    }
-                ) {
-                    if (isMarkedInstalled) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("הותקן", style = MaterialTheme.typography.labelMedium)
-                    } else {
-                        Text("סמן כהותקן", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Backup,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Text(
+                            text = "מגובה",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
                     }
                 }
             }

@@ -1,12 +1,16 @@
 package com.example.migration
 
 import com.example.domain.*
+import com.example.service.AppCategorizationService
 
 class InventoryBuilder {
+    private val categorizationService = AppCategorizationService()
+
     fun build(report: ScanReport): List<InventoryItem> {
         val items = mutableListOf<InventoryItem>()
 
         report.apps.forEach { app ->
+            val folderCategory = categorizationService.classifyApp(app.packageName, app.appName)
             items.add(
                 InventoryItem(
                     id = app.packageName,
@@ -14,8 +18,8 @@ class InventoryBuilder {
                     type = InventoryType.APP,
                     packageName = app.packageName,
                     size = 0L,
-                    priority = Priority.NORMAL,
-                    category = "UNKNOWN" // Would be classified by AppClassifier
+                    priority = if (folderCategory == com.example.service.AppFolderCategory.FINANCE_SECURITY) Priority.ESSENTIAL else Priority.NORMAL,
+                    category = folderCategory.id.uppercase()
                 )
             )
         }

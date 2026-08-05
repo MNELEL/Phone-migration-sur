@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class AppQueryService(private val context: Context) {
+    private val categorizationService = AppCategorizationService()
 
     suspend fun queryUserApplications(): List<UserAppInfo> = withContext(Dispatchers.IO) {
         val pm = context.packageManager
@@ -36,6 +37,8 @@ class AppQueryService(private val context: Context) {
                 val icon = pm.getApplicationIcon(app)
                 val size = app.sourceDir?.let { java.io.File(it).length() } ?: 0L
                 val usageFrequency = (app.packageName.hashCode() % 100).let { if (it < 0) -it else it }
+                val categoryInt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) app.category else null
+                val category = categorizationService.classifyApp(app.packageName, appName, categoryInt)
 
                 UserAppInfo(
                     packageName = app.packageName,
@@ -45,7 +48,8 @@ class AppQueryService(private val context: Context) {
                     canBackup = (app.flags and ApplicationInfo.FLAG_ALLOW_BACKUP) != 0,
                     icon = icon,
                     size = size,
-                    usageFrequency = usageFrequency
+                    usageFrequency = usageFrequency,
+                    category = category
                 )
             } catch (e: Exception) {
                 null
@@ -70,5 +74,6 @@ data class UserAppInfo(
     val canBackup: Boolean,
     val icon: Drawable?,
     val size: Long = 0L,
-    val usageFrequency: Int = 0
+    val usageFrequency: Int = 0,
+    val category: AppFolderCategory = AppFolderCategory.OTHER
 )

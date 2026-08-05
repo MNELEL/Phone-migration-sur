@@ -56,6 +56,7 @@ object ProjectZipExporter {
             // 3. App Resources
             fileCount += addZipEntry(zos, "app/src/main/res/values/strings.xml", getStringsXmlContent())
             fileCount += addZipEntry(zos, "app/src/main/res/xml/file_paths.xml", getFilePathsXmlContent())
+            fileCount += addZipEntry(zos, "app/src/main/res/xml/device_admin.xml", getDeviceAdminXmlContent())
 
             // 4. Source code files
             val appSrcDir = File(context.filesDir.parentFile, "src/main/java")
@@ -258,6 +259,19 @@ object ProjectZipExporter {
             <external-path name="external_files" path="." />
             <cache-path name="cache_files" path="." />
         </paths>
+    """.trimIndent()
+
+    private fun getDeviceAdminXmlContent(): String = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-policies>
+                <limit-password />
+                <watch-login />
+                <reset-password />
+                <force-lock />
+                <wipe-data />
+            </uses-policies>
+        </device-admin>
     """.trimIndent()
 
     private fun getMainActivityContent(): String = """

@@ -44,10 +44,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = db.migrationDao()
     private val cloudSyncService = com.example.service.CloudSyncService(dao, application)
 
-    /** Exposed so screens (e.g. the migration orchestrator) can reuse the same
-     * Firestore connection/listener instead of opening a second, competing one. */
-    fun getCloudSyncService() = cloudSyncService
-
     init {
         _state.value = _state.value.copy(isCloudAvailable = cloudSyncService.isFirestoreAvailable())
         loadFromDatabase()
@@ -221,8 +217,8 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 dao.insertApps(appEntities)
 
                 val mediaEntities = listOf(
-                    MediaEntity("PHOTOS", scanReport.media.photos, scanReport.media.photosSize, false),
-                    MediaEntity("VIDEOS", scanReport.media.videos, scanReport.media.videosSize, false)
+                    MediaEntity("PHOTOS", scanReport.media.photos, 0L, false),
+                    MediaEntity("VIDEOS", scanReport.media.videos, 0L, false)
                 )
                 dao.insertMediaStatus(mediaEntities)
 
@@ -272,6 +268,30 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 _state.value.syncCode?.let { code ->
                     cloudSyncService.pushLocalStateToCloud(code, viewModelScope)
                 }
+            } catch (e: Exception) {
+                // Silently handle
+            }
+        }
+    }
+
+    fun addCustomChecklistItems(items: List<ChecklistItem>) {
+        viewModelScope.launch {
+            try {
+                val appEntities = items.map { item ->
+                    AppEntity(
+                        packageName = item.id,
+                        appName = item.title,
+                        versionName = "1.0",
+                        installTime = System.currentTimeMillis(),
+                        canBackup = true,
+                        category = item.category,
+                        completed = item.completed,
+                        size = item.size,
+                        usageFrequency = item.usageFrequency
+                    )
+                }
+                dao.insertApps(appEntities)
+                loadFromDatabase()
             } catch (e: Exception) {
                 // Silently handle
             }
@@ -420,30 +440,10 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         context.startActivity(chooser)
     }
 
+    private val categorizationService = com.example.service.AppCategorizationService()
+
     private fun classifyApp(packageName: String): String {
-        val pkg = packageName.lowercase()
-        return when {
-            // Essential: Security, Auth, Banking, Health, Wallet, Phone/Messaging
-            pkg.contains("bank") || pkg.contains("pay") || pkg.contains("wallet") || 
-            pkg.contains("finance") || pkg.contains("auth") || pkg.contains("security") || 
-            pkg.contains("pass") || pkg.contains("health") || pkg.contains("mfa") || 
-            pkg.contains("whatsapp") || pkg.contains("signal") || pkg.contains("telegram") -> "ESSENTIAL"
-            
-            // Games: Play, Game, Arcade, Puzzle, Casino, Action, RPG, Cards
-            pkg.contains("game") || pkg.contains("arcade") || pkg.contains("puzzle") || 
-            pkg.contains("casino") || pkg.contains("racing") || pkg.contains("sports") || 
-            pkg.contains("chess") || pkg.contains("cards") || pkg.contains("rpg") || 
-            pkg.contains("simulation") || pkg.contains("clash") || pkg.contains("candy") -> "GAMES"
-            
-            // Productivity: Mail, Office, Notes, Browser, Work, Tools, PDF, Docs, Sheet, Drive
-            pkg.contains("mail") || pkg.contains("office") || pkg.contains("note") || 
-            pkg.contains("doc") || pkg.contains("sheet") || pkg.contains("drive") || 
-            pkg.contains("pdf") || pkg.contains("slack") || pkg.contains("teams") || 
-            pkg.contains("zoom") || pkg.contains("notion") || pkg.contains("keep") || 
-            pkg.contains("chrome") || pkg.contains("browser") || pkg.contains("calendar") -> "PRODUCTIVITY"
-            
-            else -> "PRODUCTIVITY"
-        }
+        return categorizationService.classifyApp(packageName).id.uppercase()
     }
 
     fun showSnackbarMessage(msg: String) {

@@ -13,13 +13,7 @@ data class AppInfo(
 )
 
 data class ContactSummary(val total: Int)
-data class MediaSummary(
-    val photos: Int,
-    val videos: Int,
-    val totalSize: Long,
-    val photosSize: Long = 0L,
-    val videosSize: Long = 0L
-)
+data class MediaSummary(val photos: Int, val videos: Int, val totalSize: Long)
 
 data class InventoryItem(
     val id: String,

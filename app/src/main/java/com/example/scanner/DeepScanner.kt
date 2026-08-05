@@ -75,39 +75,23 @@ class DeepScanner(private val context: Context) {
 
     private fun scanMedia(): MediaSummary {
         return try {
-            val photoStats = countAndSizeMedia(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-            val videoStats = countAndSizeMedia(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-            MediaSummary(
-                photos = photoStats.first,
-                videos = videoStats.first,
-                totalSize = photoStats.second + videoStats.second,
-                photosSize = photoStats.second,
-                videosSize = videoStats.second
-            )
+            val photos = countMedia(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+            val videos = countMedia(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+            MediaSummary(photos, videos, 0L)
         } catch (e: Exception) {
             MediaSummary(0, 0, 0L)
         }
     }
 
-    /** Returns (count, totalSizeBytes) for the given media collection. */
-    private fun countAndSizeMedia(uri: Uri): Pair<Int, Long> {
+    private fun countMedia(uri: Uri): Int {
         val cursor = context.contentResolver.query(
             uri,
-            arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.SIZE),
+            arrayOf(MediaStore.MediaColumns._ID),
             null, null, null
         )
-        var count = 0
-        var totalSize = 0L
-        cursor?.use {
-            val sizeColumn = it.getColumnIndex(MediaStore.MediaColumns.SIZE)
-            while (it.moveToNext()) {
-                count++
-                if (sizeColumn >= 0) {
-                    totalSize += it.getLong(sizeColumn)
-                }
-            }
-        }
-        return count to totalSize
+        val count = cursor?.count ?: 0
+        cursor?.close()
+        return count
     }
 
     private fun scanAccounts(): List<String> {

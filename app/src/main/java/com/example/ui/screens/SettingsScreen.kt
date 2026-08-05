@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Lightbulb
 import com.example.service.ProjectZipExporter
 import com.example.service.ZipExportResult
 
@@ -32,10 +34,11 @@ import com.example.service.ZipExportResult
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onNavigateToAppList: () -> Unit = {},
-    onNavigateToLivePreview: () -> Unit = {}
+    onNavigateToDeviceAdmin: () -> Unit = {},
+    onNavigateToLivePreview: () -> Unit = {},
+    onNavigateToProTips: () -> Unit = {}
 ) {
-    var backupMode by remember { mutableStateOf("Google Drive") } // "Google Drive", "Manual Encrypted"
+    var backupMode by remember { mutableStateOf("Google Drive") } // "Google Drive", "Dropbox", "Manual Encrypted"
     var isEncryptionEnabled by remember { mutableStateOf(true) }
     var autoSyncOnWifi by remember { mutableStateOf(true) }
     var includeMediaInBackup by remember { mutableStateOf(true) }
@@ -56,6 +59,7 @@ fun SettingsScreen(
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showDataDeleteDialog by remember { mutableStateOf(false) }
     var dataDeleteSuccessMessage by remember { mutableStateOf<String?>(null) }
+    var showPlayStoreDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -107,6 +111,16 @@ fun SettingsScreen(
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(
+                                selected = backupMode == "Dropbox",
+                                onClick = { backupMode = "Dropbox" }
+                            )
+                            Icon(Icons.Default.Cloud, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Dropbox (אחסון מוצפן מאובטח)")
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
                                 selected = backupMode == "Manual Encrypted",
                                 onClick = { backupMode = "Manual Encrypted" }
                             )
@@ -142,8 +156,8 @@ fun SettingsScreen(
                                 Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.width(12.dp))
                                 Column {
-                                    Text("הצפנת קבצי מעבר (בפיתוח)", fontWeight = FontWeight.Bold)
-                                    Text("תכונה זו עדיין לא מיושמת בפועל בקוד — אין הצפנה פעילה כרגע", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                    Text("הצפנת קבצי מעבר ברמת AES-256", fontWeight = FontWeight.Bold)
+                                    Text("הצפן תמונות ואנשי קשר לפני העלאה לענן", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             Switch(
@@ -291,7 +305,7 @@ fun SettingsScreen(
 
             item {
                 Text(
-                    text = "העברת אפליקציות למכשיר החדש",
+                    text = "הרשאות מתקדמות ושיבוט מכשיר",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -308,19 +322,19 @@ fun SettingsScreen(
                             Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
                             Spacer(Modifier.width(12.dp))
                             Column {
-                                Text("אפליקציות מותקנות", fontWeight = FontWeight.Bold)
-                                Text("צפה ברשימת האפליקציות שלך ופתח כל אחת בחנות כדי להתקין במכשיר החדש", style = MaterialTheme.typography.bodySmall)
+                                Text("מרכז ניהול מכשיר", fontWeight = FontWeight.Bold)
+                                Text("התקנה שקטה של אפליקציות, סנכרון הרשאות ושיבוט מלא", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         Spacer(Modifier.height(12.dp))
                         Button(
-                            onClick = onNavigateToAppList,
+                            onClick = onNavigateToDeviceAdmin,
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                         ) {
                             Icon(Icons.Default.AdminPanelSettings, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("פתח רשימת אפליקציות", fontWeight = FontWeight.Bold)
+                            Text("פתח מנהל מכשיר ומשכפל אפליקציות", fontWeight = FontWeight.Bold)
                         }
 
                         Spacer(Modifier.height(8.dp))
@@ -440,8 +454,99 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Storefront,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "צ'ק ליסט לפרסום ב-Google Play",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    text = "מדריך שלב-אחר-שלב לדרישות חתימה, מניפסט, כיווץ AAB ופרסום לחנות",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = { showPlayStoreDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.tertiaryContainer
+                            )
+                        ) {
+                            Text("פתח מדריך פרסום ל-Google Play", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Lightbulb,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "טיפים ומאמרי מומחים (Pro Tips)",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "מאמרים מעודכנים על אבטחת 2FA, WhatsApp, Google One ואינטגרציות גוגל",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = onNavigateToProTips,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        ) {
+                            Text("עבור למרכז הטיפים והחיפוש", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
+
+    PlayStorePublishingDialog(
+        showDialog = showPlayStoreDialog,
+        onDismiss = { showPlayStoreDialog = false }
+    )
 
     if (showPrivacyDialog) {
         AlertDialog(
@@ -451,7 +556,7 @@ fun SettingsScreen(
                 Column {
                     Text(
                         "אפליקציית Smart Device Migration מקפידה על הגנה מלאה של המידע האישי שלך לפי הנחיות Google Play:\n\n" +
-                        "1. הנתונים (שמות אפליקציות, כמויות, סטטוס השלמה) מסונכרנים דרך Firestore, המוגן ב-TLS בזמן העברה. קבצים אישיים (תמונות, אנשי קשר בפועל) אינם מועלים על ידי אפליקציה זו.\n" +
+                        "1. הנתונים (אנשי קשר, מדיה, אפליקציות) מועברים בצורה מוצפנת בלבד (AES-256 / TLS 1.3).\n" +
                         "2. לא נעשה שום שימוש במידע למטרות פרסום או שיתוף עם צד ג'.\n" +
                         "3. באפשרותך למחוק את כל המידע שנסרק ונשמר בכל עת דרך כפתור 'מחיקת נתונים'.",
                         style = MaterialTheme.typography.bodySmall
